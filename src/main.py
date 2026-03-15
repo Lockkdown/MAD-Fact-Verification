@@ -8,8 +8,12 @@ import warnings
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore")
 logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.ERROR)
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+logging.getLogger("absl").setLevel(logging.ERROR)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,13 +29,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phase",
         required=True,
-        choices=["download", "preprocess", "estimate"],
+        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all"],
         help="Pipeline phase to run",
     )
     parser.add_argument(
         "--config",
         default=None,
-        help="Path to experiment YAML config (required for --phase estimate)",
+        help="Path to experiment YAML config (required for --phase estimate/train)",
     )
     parser.add_argument(
         "--mode",
@@ -78,6 +82,62 @@ def _run_estimate(config_path: str, mode: str) -> None:
     )
 
 
+def _get_device() -> "torch.device":
+    """Return CUDA device if available, else CPU."""
+    import torch
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info("Device: %s", device)
+    return device
+
+
+def _run_train(config_path: str) -> None:
+    """Fine-tune a single PLM model specified by config YAML."""
+    from src.models.train_eval import run_training
+    run_training(config_path, _get_device())
+
+
+def _run_train_all() -> None:
+    """Fine-tune all 4 PLM models sequentially using their default configs."""
+    from src.models.train_eval import run_training
+    from src.utils.common import PROJECT_ROOT
+
+    configs = [
+        PROJECT_ROOT / "src/config/experiments/phobert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/xlmr_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/mbert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/vibert_gold_evidence.yaml",
+    ]
+    device = _get_device()
+    for cfg_path in configs:
+        logger.info("--- Starting: %s ---", cfg_path.name)
+        run_training(str(cfg_path), device)
+    logger.info("=== All 4 models trained ===")
+
+
+def _run_eval(config_path: str) -> None:
+    """Evaluate best checkpoint of a single model on the test set."""
+    from src.models.evaluate_test import run_test_evaluation
+    run_test_evaluation(config_path, _get_device())
+
+
+def _run_eval_all() -> None:
+    """Evaluate all 4 PLM checkpoints on the test set sequentially."""
+    from src.models.evaluate_test import run_test_evaluation
+    from src.utils.common import PROJECT_ROOT
+
+    configs = [
+        PROJECT_ROOT / "src/config/experiments/phobert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/xlmr_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/mbert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/vibert_gold_evidence.yaml",
+    ]
+    device = _get_device()
+    for cfg_path in configs:
+        logger.info("--- Eval: %s ---", cfg_path.name)
+        run_test_evaluation(str(cfg_path), device)
+    logger.info("=== All 4 models evaluated ===")
+
+
 def main() -> None:
     """Parse args and dispatch to the correct pipeline phase."""
     args = _parse_args()
@@ -93,6 +153,24 @@ def main() -> None:
             logger.error("--config is required for --phase estimate")
             sys.exit(1)
         _run_estimate(args.config, args.mode)
+
+    elif args.phase == "train":
+        if not args.config:
+            logger.error("--config is required for --phase train")
+            sys.exit(1)
+        _run_train(args.config)
+
+    elif args.phase == "train-all":
+        _run_train_all()
+
+    elif args.phase == "eval":
+        if not args.config:
+            logger.error("--config is required for --phase eval")
+            sys.exit(1)
+        _run_eval(args.config)
+
+    elif args.phase == "eval-all":
+        _run_eval_all()
 
 
 if __name__ == "__main__":

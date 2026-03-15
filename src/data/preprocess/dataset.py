@@ -25,7 +25,7 @@ MODEL_CONFIGS: dict[str, dict] = {
         "use_pyvi": False,
         "max_length": {"gold_evidence": 256, "full_context": 512},
     },
-    "vinai/vibert-base-cased": {
+    "FPTAI/vibert-base-cased": {
         "use_pyvi": False,
         "max_length": {"gold_evidence": 256, "full_context": 512},
     },
@@ -100,7 +100,6 @@ class ViFactCheckDataset(Dataset):
             "input_ids": encoding["input_ids"].squeeze(0),
             "attention_mask": encoding["attention_mask"].squeeze(0),
             "labels": torch.tensor(sample["label"], dtype=torch.long),
-            "sample_id": sample["sample_id"],
         }
 
 
