@@ -1,0 +1,9 @@
+torch>=2.1.0
+transformers>=4.40.0
+datasets>=2.19.0
+pyvi>=0.1.1
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pyyaml>=6.0.1
+tqdm>=4.66.0
+accelerate>=0.29.0
