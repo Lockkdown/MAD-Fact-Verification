@@ -1,6 +1,6 @@
 debate:
   mode: "full_debate"
-  rounds: 5
+  rounds: 3
   early_stopping: true
   panel:
     debaters:
@@ -18,13 +18,14 @@ routing:
   threshold: null
 
 data:
-  split: "test"
+  split: "dev"
   mode: "gold_evidence"
   batch_size: 10
   dev_path: "src/data/preprocessed/xlmr/vifactcheck_dev.jsonl"
   test_path: "src/data/preprocessed/xlmr/vifactcheck_test.jsonl"
 
 output:
-  log_path: "reports/debate/full/n3k5/logs.jsonl"
-  metrics_path: "reports/debate/full/n3k5/metrics.json"
-  viz_dir: "reports/debate/full/n3k5/visualizations/"
+  log_path: "reports/debate/sweep/n3k3/logs.jsonl"
+  metrics_path: "reports/debate/sweep/n3k3/metrics.json"
+  sweep_dir: "reports/debate/sweep/n3k3"
+  viz_dir: "reports/debate/sweep/n3k3/visualizations/"

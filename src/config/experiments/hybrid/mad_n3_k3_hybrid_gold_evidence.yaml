@@ -15,12 +15,15 @@ debate:
 
 routing:
   plm_checkpoint: "reports/models_plm/phobert/checkpoints/best_model.pt"
+  plm_model: "vinai/phobert-base"
   threshold: null
 
 data:
   split: "test"
   mode: "gold_evidence"
   batch_size: 10
+  dev_path: "src/data/preprocessed/xlmr/vifactcheck_dev.jsonl"
+  test_path: "src/data/preprocessed/xlmr/vifactcheck_test.jsonl"
 
 output:
   log_path: "reports/debate/hybrid/n3k3/logs.jsonl"

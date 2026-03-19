@@ -23,6 +23,8 @@ data:
   split: "test"
   mode: "gold_evidence"
   batch_size: 10
+  dev_path: "src/data/preprocessed/xlmr/vifactcheck_dev.jsonl"
+  test_path: "src/data/preprocessed/xlmr/vifactcheck_test.jsonl"
 
 output:
   log_path: "reports/debate/full/n4k5/logs.jsonl"
