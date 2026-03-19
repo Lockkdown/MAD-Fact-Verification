@@ -29,7 +29,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phase",
         required=True,
-        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all"],
+        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "sweep"],
         help="Pipeline phase to run",
     )
     parser.add_argument(
@@ -42,6 +42,18 @@ def _parse_args() -> argparse.Namespace:
         default="gold_evidence",
         choices=["gold_evidence", "full_context"],
         help="Input mode for estimate phase (default: gold_evidence)",
+    )
+    parser.add_argument(
+        "--split",
+        default=None,
+        choices=["dev", "test"],
+        help="Override data split from YAML (used with --phase debate)",
+    )
+    parser.add_argument(
+        "--plm-scores",
+        default=None,
+        dest="plm_scores",
+        help="Path to PLM confidence JSONL (required for --phase sweep)",
     )
     return parser.parse_args()
 
@@ -102,10 +114,10 @@ def _run_train_all() -> None:
     from src.utils.common import PROJECT_ROOT
 
     configs = [
-        PROJECT_ROOT / "src/config/experiments/phobert_gold_evidence.yaml",
-        PROJECT_ROOT / "src/config/experiments/xlmr_gold_evidence.yaml",
-        PROJECT_ROOT / "src/config/experiments/mbert_gold_evidence.yaml",
-        PROJECT_ROOT / "src/config/experiments/vibert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/plm/phobert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/plm/xlmr_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/plm/mbert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/plm/vibert_gold_evidence.yaml",
     ]
     device = _get_device()
     for cfg_path in configs:
@@ -126,16 +138,29 @@ def _run_eval_all() -> None:
     from src.utils.common import PROJECT_ROOT
 
     configs = [
-        PROJECT_ROOT / "src/config/experiments/phobert_gold_evidence.yaml",
-        PROJECT_ROOT / "src/config/experiments/xlmr_gold_evidence.yaml",
-        PROJECT_ROOT / "src/config/experiments/mbert_gold_evidence.yaml",
-        PROJECT_ROOT / "src/config/experiments/vibert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/plm/phobert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/plm/xlmr_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/plm/mbert_gold_evidence.yaml",
+        PROJECT_ROOT / "src/config/experiments/plm/vibert_gold_evidence.yaml",
     ]
     device = _get_device()
     for cfg_path in configs:
         logger.info("--- Eval: %s ---", cfg_path.name)
         run_test_evaluation(str(cfg_path), device)
     logger.info("=== All 4 models evaluated ===")
+
+
+def _run_debate(config_path: str, split_override: str | None) -> None:
+    """Run full or hybrid debate experiment on configured split."""
+    import asyncio
+    from src.orchestrator.experiment_runner import run_debate_experiment
+    asyncio.run(run_debate_experiment(config_path, _get_device(), split_override))
+
+
+def _run_sweep(config_path: str, plm_scores_path: str) -> None:
+    """Run virtual threshold sweep using saved debate + PLM confidence logs."""
+    from src.orchestrator.threshold_sweep import run_threshold_sweep_from_config
+    run_threshold_sweep_from_config(config_path, plm_scores_path)
 
 
 def main() -> None:
@@ -171,6 +196,21 @@ def main() -> None:
 
     elif args.phase == "eval-all":
         _run_eval_all()
+
+    elif args.phase == "debate":
+        if not args.config:
+            logger.error("--config is required for --phase debate")
+            sys.exit(1)
+        _run_debate(args.config, args.split)
+
+    elif args.phase == "sweep":
+        if not args.config:
+            logger.error("--config is required for --phase sweep")
+            sys.exit(1)
+        if not args.plm_scores:
+            logger.error("--plm-scores is required for --phase sweep")
+            sys.exit(1)
+        _run_sweep(args.config, args.plm_scores)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,31 @@
+debate:
+  mode: "hybrid_debate"
+  rounds: 5
+  early_stopping: true
+  panel:
+    debaters:
+      - agent_id: "D1"
+        model: "google/gemini-2.5-flash"
+      - agent_id: "D2"
+        model: "openai/gpt-4o-mini"
+      - agent_id: "D3"
+        model: "qwen/qwen-2.5-72b-instruct"
+    judge:
+      model: "deepseek/deepseek-chat"
+
+routing:
+  plm_checkpoint: "reports/models_plm/phobert/checkpoints/best_model.pt"
+  plm_model: "vinai/phobert-base"
+  threshold: null
+
+data:
+  split: "test"
+  mode: "gold_evidence"
+  batch_size: 10
+  dev_path: "src/data/preprocessed/xlmr/vifactcheck_dev.jsonl"
+  test_path: "src/data/preprocessed/xlmr/vifactcheck_test.jsonl"
+
+output:
+  log_path: "reports/debate/hybrid/n3k5/logs.jsonl"
+  metrics_path: "reports/debate/hybrid/n3k5/metrics.json"
+  viz_dir: "reports/debate/hybrid/n3k5/visualizations/"
