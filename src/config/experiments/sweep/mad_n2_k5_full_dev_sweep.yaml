@@ -8,8 +8,6 @@ debate:
         model: "mistralai/mistral-small-2603"
       - agent_id: "D2"
         model: "openai/gpt-4o-mini"
-      - agent_id: "D3"
-        model: "qwen/qwen-2.5-72b-instruct"
     judge:
       model: "deepseek/deepseek-chat"
 
@@ -18,13 +16,14 @@ routing:
   threshold: null
 
 data:
-  split: "test"
+  split: "dev"
   mode: "gold_evidence"
-  batch_size: 10
+  batch_size: 6
   dev_path: "src/data/preprocessed/xlmr/vifactcheck_dev.jsonl"
   test_path: "src/data/preprocessed/xlmr/vifactcheck_test.jsonl"
 
 output:
-  log_path: "reports/debate/full/n3k5/logs.jsonl"
-  metrics_path: "reports/debate/full/n3k5/metrics.json"
-  viz_dir: "reports/debate/full/n3k5/visualizations/"
+  log_path: "reports/debate/sweep/n2k5/logs.jsonl"
+  metrics_path: "reports/debate/sweep/n2k5/metrics.json"
+  sweep_dir: "reports/debate/sweep/n2k5"
+  viz_dir: "reports/debate/sweep/n2k5/visualizations/"

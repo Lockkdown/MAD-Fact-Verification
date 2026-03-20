@@ -11,6 +11,8 @@ import torch
 import yaml
 from tqdm import tqdm
 
+from src.outputs.metrics.debate_logger import DebateLogger
+from src.outputs.metrics.debate_metrics import compute_and_save_debate_metrics
 from src.orchestrator.debate_engine import DebateEngine
 from src.orchestrator.mad_builder import build_client, build_debate_engine, build_routing_gate
 from src.orchestrator.routing_gate import RoutingGate
@@ -154,7 +156,12 @@ async def run_debate_experiment(
         f"  (capped at {max_samples})" if max_samples is not None else "",
     )
     if not pending:
-        logger.info("All samples already processed — nothing to do.")
+        logger.info("All samples already processed — recomputing metrics only.")
+        compute_and_save_debate_metrics(
+            log_path=cfg["output"]["log_path"],
+            metrics_path=cfg["output"]["metrics_path"],
+            cfg=cfg,
+        )
         return
 
     mode = cfg["debate"]["mode"]
@@ -182,5 +189,36 @@ async def run_debate_experiment(
     finally:
         debate_logger.close()
         await client.close()
+        compute_and_save_debate_metrics(
+            log_path=cfg["output"]["log_path"],
+            metrics_path=cfg["output"]["metrics_path"],
+            cfg=cfg,
+        )
+        logger.info("=== Debate complete. Logs → %s ===", cfg["output"]["log_path"])
 
-    logger.info("=== Debate complete. Logs → %s ===", cfg["output"]["log_path"])
+
+async def run_multi_config(
+    config_paths: list[str],
+    device: torch.device,
+    split_override: str | None = None,
+    max_samples: int | None = None,
+    max_concurrent: int = 1,
+) -> None:
+    """Run multiple debate configs sequentially or concurrently.
+
+    max_concurrent=1  → sequential (safe, no rate-limit risk)
+    max_concurrent=2+ → N configs share the event loop (faster, more API load)
+    """
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def _run_one(cfg_path: str) -> None:
+        async with sem:
+            config_name = Path(cfg_path).stem
+            logger.info(">>> Starting config: %s", config_name)
+            await run_debate_experiment(cfg_path, device, split_override, max_samples)
+            logger.info("<<< Done config: %s", config_name)
+
+    tasks = [_run_one(p) for p in config_paths]
+    await asyncio.gather(*tasks)
+
+    logger.info("=== All %d configs complete ===", len(config_paths))

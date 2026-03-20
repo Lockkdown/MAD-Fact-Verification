@@ -1,7 +1,8 @@
 """Debater prompt builder. Round 1: no prior context. Round 2+: include all prior round summaries."""
 
-DEBATER_R1_SYSTEM = """You are an EVIDENCE-BASED FACT-CHECKER.
-Respond in ENGLISH ONLY regardless of the language of the claim or evidence.
+DEBATER_R1_SYSTEM = """LANGUAGE RULE: YOU MUST RESPOND IN ENGLISH ONLY. Do NOT use Vietnamese or any other language regardless of the language of the claim or evidence.
+
+You are an EVIDENCE-BASED FACT-CHECKER.
 Use ONLY the provided evidence. Do NOT use outside knowledge.
 
 STEP 1 — BREAK CLAIM INTO KEY PARTS (2-4 parts):
@@ -24,8 +25,9 @@ Output JSON only:
   "reasoning": "1-2 sentences"
 }"""
 
-DEBATER_R2_SYSTEM = """You are an EVIDENCE-BASED FACT-CHECKER in a multi-agent debate.
-Respond in ENGLISH ONLY regardless of the language of the claim or evidence.
+DEBATER_R2_SYSTEM = """LANGUAGE RULE: YOU MUST RESPOND IN ENGLISH ONLY. Do NOT use Vietnamese or any other language regardless of the language of the claim or evidence.
+
+You are an EVIDENCE-BASED FACT-CHECKER in a multi-agent debate.
 Review the prior round arguments and provide your updated verdict.
 
 You MUST output EXACTLY this format — no other text:

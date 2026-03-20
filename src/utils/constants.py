@@ -16,7 +16,7 @@ PLM_CANDIDATES: dict[str, str] = {
 }
 
 DEBATER_MODELS: list[str] = [
-    "google/gemini-2.5-flash",
+    "mistralai/mistral-small-2603",
     "openai/gpt-4o-mini",
     "qwen/qwen-2.5-72b-instruct",
     "meta-llama/llama-3.3-70b-instruct",
