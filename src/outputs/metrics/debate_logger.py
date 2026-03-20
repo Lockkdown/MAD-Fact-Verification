@@ -1,7 +1,10 @@
 """DebateLogger: per-sample JSONL logger with append mode and crash-safe flushing."""
 
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class DebateLogger:
@@ -29,3 +32,30 @@ class DebateLogger:
 
     def __exit__(self, *args) -> None:
         self.close()
+
+    @staticmethod
+    def extract_errors(log_path: str) -> int:
+        """Write error samples to <log_stem>_errors.jsonl. Returns count written."""
+        src = Path(log_path)
+        if not src.exists():
+            return 0
+        errors = []
+        with open(src, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    if "error" in entry:
+                        errors.append(entry)
+                except json.JSONDecodeError:
+                    continue
+        if not errors:
+            return 0
+        out_path = src.parent / f"{src.stem}_errors.jsonl"
+        with open(out_path, "w", encoding="utf-8") as f:
+            for entry in errors:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        logger.info("Extracted %d error sample(s) → %s", len(errors), out_path)
+        return len(errors)

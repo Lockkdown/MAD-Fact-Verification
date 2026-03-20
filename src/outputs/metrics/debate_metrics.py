@@ -20,12 +20,12 @@ def compute_and_save_debate_metrics(
     cfg: dict,
 ) -> None:
     """Read logs.jsonl, compute metrics, and write metrics.json."""
-    samples = _load_logs(log_path)
+    samples, total_run = _load_logs(log_path)
     if not samples:
         logger.warning("No completed samples found in %s — skipping metrics.", log_path)
         return
 
-    metrics = _compute_metrics(samples, cfg)
+    metrics = _compute_metrics(samples, total_run, cfg)
     _save_json(metrics_path, metrics)
     logger.info("Debate metrics saved → %s", metrics_path)
 
@@ -36,12 +36,13 @@ def _resolve(path_str: str) -> Path:
     return p if p.is_absolute() else PROJECT_ROOT / p
 
 
-def _load_logs(log_path: str) -> list[dict]:
-    """Load all non-error sample results from a JSONL file."""
+def _load_logs(log_path: str) -> tuple[list[dict], int]:
+    """Load sample results from JSONL. Returns (success_samples, total_count)."""
     path = _resolve(log_path)
     if not path.exists():
-        return []
+        return [], 0
     results = []
+    total_count = 0
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -49,14 +50,15 @@ def _load_logs(log_path: str) -> list[dict]:
                 continue
             try:
                 entry = json.loads(line)
-                if "error" not in entry:  # skip crashed samples
+                total_count += 1
+                if "error" not in entry:  # skip crashed samples for quality metrics
                     results.append(entry)
             except json.JSONDecodeError:
                 continue
-    return results
+    return results, total_count
 
 
-def _compute_metrics(samples: list[dict], cfg: dict) -> dict:
+def _compute_metrics(samples: list[dict], total_run: int, cfg: dict) -> dict:
     """Compute all debate metrics from a list of completed sample results."""
     n_debaters = cfg["debate"]["panel"]["debaters"].__len__()
     k_max = cfg["debate"]["rounds"]
@@ -66,7 +68,7 @@ def _compute_metrics(samples: list[dict], cfg: dict) -> dict:
     total = len(samples)
 
     macro_f1 = f1_score(gold_labels, pred_labels, labels=LABEL_NAMES, average="macro", zero_division=0)
-    accuracy = sum(g == p for g, p in zip(gold_labels, pred_labels)) / total
+    accuracy = sum(g == p for g, p in zip(gold_labels, pred_labels)) / total_run
 
     f1_per_label = {}
     for i, label in enumerate(LABEL_NAMES):
@@ -95,13 +97,19 @@ def _compute_metrics(samples: list[dict], cfg: dict) -> dict:
         "never": round(round_counts["never"] / total, 4),
     }
 
+    error_count = total_run - total
+    error_rate = round(error_count / total_run, 4) if total_run > 0 else 0.0
+
     return {
         "config": {
             "mode": cfg["debate"]["mode"],
             "n": n_debaters,
             "k": k_max,
         },
-        "total_samples": total,
+        "total_run": total_run,
+        "successful_samples": total,
+        "error_count": error_count,
+        "error_rate": error_rate,
         "macro_f1": round(macro_f1, 4),
         "accuracy": round(accuracy, 4),
         "f1_per_label": f1_per_label,

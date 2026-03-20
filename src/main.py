@@ -29,7 +29,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phase",
         required=True,
-        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep"],
+        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep", "retry"],
         help="Pipeline phase to run",
     )
     parser.add_argument(
@@ -74,6 +74,12 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         dest="parallel",
         help="Number of configs to run concurrently in --phase debate-all (default: 1 = sequential)",
+    )
+    parser.add_argument(
+        "--retry",
+        default=None,
+        dest="retry",
+        help="Path to errors JSONL produced by DebateLogger.extract_errors() (required for --phase retry)",
     )
     return parser.parse_args()
 
@@ -217,6 +223,13 @@ def _run_sweep(config_path: str, plm_scores_path: str) -> None:
     run_threshold_sweep_from_config(config_path, plm_scores_path)
 
 
+def _run_retry(config_path: str, errors_jsonl_path: str) -> None:
+    """Retry failed samples from a previous debate run and merge results back."""
+    import asyncio
+    from src.orchestrator.retry_runner import run_retry_experiment
+    asyncio.run(run_retry_experiment(config_path, errors_jsonl_path))
+
+
 def main() -> None:
     """Parse args and dispatch to the correct pipeline phase."""
     args = _parse_args()
@@ -271,6 +284,15 @@ def main() -> None:
             logger.error("--plm-scores is required for --phase sweep")
             sys.exit(1)
         _run_sweep(args.config, args.plm_scores)
+
+    elif args.phase == "retry":
+        if not args.config:
+            logger.error("--config is required for --phase retry")
+            sys.exit(1)
+        if not args.retry:
+            logger.error("--retry is required for --phase retry")
+            sys.exit(1)
+        _run_retry(args.config, args.retry)
 
 
 if __name__ == "__main__":

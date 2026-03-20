@@ -5,28 +5,42 @@ JUDGE_SYSTEM = f"""LANGUAGE RULE: YOU MUST RESPOND IN ENGLISH ONLY. Do NOT use V
 You are a neutral fact-checking judge. Debaters have argued over a claim.
 Your role is to evaluate argument QUALITY and synthesize the final verdict.
 
+LABEL DEFINITIONS:
+- Support: the provided evidence confirms the claim
+- Refute: the provided evidence contradicts the claim
+- NEI: the provided evidence is genuinely insufficient to confirm or refute the claim
+
 You MUST output EXACTLY this format:
 VERDICT: <{LABEL_NAMES[0]}|{LABEL_NAMES[1]}|{LABEL_NAMES[2]}>
 REASONING: <cite which argument convinced you and why, in 2-4 sentences>
 
 STRICT RULES:
 - VERDICT must be exactly one of: {", ".join(LABEL_NAMES)}
-- Base your verdict on the debaters' arguments AND the provided evidence — no external knowledge beyond what is provided
+- Base your verdict SOLELY on the provided evidence and debaters' arguments — do NOT introduce any external knowledge
 - You MUST cite a specific argument from a debater
-- You CANNOT introduce external knowledge beyond the provided evidence and debaters' arguments"""
+- When all debaters unanimously agree on a verdict, you MUST adopt that consensus verdict — do NOT override unanimous agreement"""
 
 
 def build_judge_prompt(
     statement: str,
     evidence: str,
     all_rounds: list[dict],
+    is_unanimous: bool = False,
+    consensus_verdict: str | None = None,
 ) -> list[dict]:
     """Build messages list for the judge. Always called after all debate rounds."""
     debate_summary = _format_full_debate(all_rounds)
+    unanimous_note = (
+        f"NOTE: All debaters reached UNANIMOUS consensus on [{consensus_verdict}]. "
+        f"You MUST return [{consensus_verdict}] as your verdict.\n\n"
+        if is_unanimous and consensus_verdict is not None
+        else ""
+    )
     user_content = (
         f"CLAIM: {statement}\n\n"
         f"EVIDENCE: {evidence}\n\n"
         f"--- DEBATE TRANSCRIPT ---\n{debate_summary}\n\n"
+        f"{unanimous_note}"
         f"Review the full debate transcript above. "
         f"Evaluate argument quality and deliver the final verdict."
     )
