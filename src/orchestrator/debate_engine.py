@@ -74,13 +74,14 @@ class DebateEngine:
                 "correct": resolution["verdict"] == gold_label,
             }
 
-        except Exception as exc:
+        except BaseException as exc:  # covers CancelledError (BaseException in Python 3.10+)
             result = self._make_error_result(
                 sample_id, gold_label, mode, m_star_confidence, str(exc)
             )
 
         finally:
-            self.logger.log(result)
+            if result:  # skip logging empty dict if raise happens before result is set
+                self.logger.log(result)
 
         return result
 

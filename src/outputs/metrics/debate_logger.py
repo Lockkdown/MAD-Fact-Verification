@@ -14,6 +14,8 @@ class DebateLogger:
 
     def log(self, result: dict) -> None:
         """Append one sample result as a JSON line and flush immediately."""
+        if self._file.closed:
+            return  # in-flight tasks may call this after close() — silently skip
         self._file.write(json.dumps(result, ensure_ascii=False) + "\n")
         self._file.flush()
 

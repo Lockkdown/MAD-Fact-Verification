@@ -112,11 +112,15 @@ async def run_debate_on_split(
     tasks = [process_one(s) for s in samples]
     with tqdm(total=len(samples), desc="Debating", unit="sample") as pbar:
         for coro in asyncio.as_completed(tasks):
-            result = await coro
-            results.append(result)
+            try:
+                result = await coro
+                results.append(result)
+            except BaseException as exc:  # prevent one task failure from killing the runner
+                logger.error("Task raised unhandled exception — sample skipped: %s", exc)
             pbar.update(1)
-            correct_count = sum(r["correct"] for r in results)
-            pbar.set_postfix_str(f"Acc: {correct_count / len(results):.1%}")
+            if results:
+                correct_count = sum(r["correct"] for r in results)
+                pbar.set_postfix_str(f"Acc: {correct_count / len(results):.1%}")
             if len(results) % 50 == 0:
                 gc.collect()  # periodic memory release for long runs
 

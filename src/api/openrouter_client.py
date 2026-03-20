@@ -8,6 +8,8 @@ from typing import Optional
 import aiohttp
 from dotenv import load_dotenv
 
+_NETWORK_ERRORS = (Exception, asyncio.CancelledError)
+
 load_dotenv()
 
 OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
@@ -100,7 +102,7 @@ class OpenRouterClient:
                         output_tokens=usage.get("completion_tokens", 0),
                         success=True,
                     )
-            except Exception as exc:
+            except _NETWORK_ERRORS as exc:  # includes CancelledError from aiohttp DNS
                 last_error = str(exc)
                 # Reset session on error — may be stale connection
                 await self.close()
