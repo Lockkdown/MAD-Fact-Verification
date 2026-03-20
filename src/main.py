@@ -187,13 +187,18 @@ def _run_debate_all(
     import asyncio
     from pathlib import Path
     from src.orchestrator.experiment_runner import run_multi_config
+    from src.utils.common import PROJECT_ROOT
 
-    config_paths = sorted(Path(configs_dir).glob("*.yaml"))
+    config_dir_path = Path(configs_dir)
+    resolved_configs_dir = (
+        config_dir_path if config_dir_path.is_absolute() else PROJECT_ROOT / config_dir_path
+    )
+    config_paths = sorted(resolved_configs_dir.glob("*.yaml"))
     if not config_paths:
-        logger.error("No YAML configs found in: %s", configs_dir)
+        logger.error("No YAML configs found in: %s", resolved_configs_dir)
         sys.exit(1)
 
-    logger.info("Found %d configs in %s (parallel=%d)", len(config_paths), configs_dir, parallel)
+    logger.info("Found %d configs in %s (parallel=%d)", len(config_paths), resolved_configs_dir, parallel)
     for p in config_paths:
         logger.info("  %s", p.name)
 

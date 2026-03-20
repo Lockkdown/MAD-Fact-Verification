@@ -42,21 +42,12 @@ class Orchestrator:
     async def resolve(
         self,
         statement: str,
+        evidence: str,
         all_rounds: list[dict],
         final_round: dict,
     ) -> dict:
-        """Resolve final verdict. Unanimous → bypass judge. Split → call judge."""
-        is_unanimous, consensus = self.check_unanimous(final_round)
-
-        if is_unanimous:
-            return {
-                "verdict": consensus,
-                "judge_called": False,
-                "judge_reasoning": None,
-                "judge_tokens": None,
-            }
-
-        judge_result = await self.judge.adjudicate(statement, all_rounds)
+        """Resolve final verdict. Judge is ALWAYS called regardless of unanimity."""
+        judge_result = await self.judge.adjudicate(statement, evidence, all_rounds)
         return {
             "verdict": judge_result["verdict"],
             "judge_called": True,

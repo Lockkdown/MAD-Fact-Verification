@@ -17,10 +17,11 @@ class JudgeAgent:
     async def adjudicate(
         self,
         statement: str,
+        evidence: str,
         all_rounds: list[dict],
     ) -> dict:
         """Resolve a split verdict. Returns structured result dict."""
-        messages = build_judge_prompt(statement, all_rounds)
+        messages = build_judge_prompt(statement, evidence, all_rounds)
         # Lower temperature for more deterministic adjudication
         response = await self.client.complete(self.model, messages, temperature=0.3)
         verdict, reasoning = self._parse_response(response)

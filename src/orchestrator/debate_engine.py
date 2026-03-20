@@ -50,11 +50,11 @@ class DebateEngine:
                         break
 
             resolution = await self.orchestrator.resolve(
-                statement, all_rounds, all_rounds[-1]
+                statement, evidence, all_rounds, all_rounds[-1]
             )
 
             n_debaters = len(self.orchestrator.debaters)
-            num_agent_calls = rounds_used * n_debaters + (1 if resolution["judge_called"] else 0)
+            num_agent_calls = rounds_used * n_debaters + 1  # judge always called
 
             result = {
                 "sample_id": sample_id,
