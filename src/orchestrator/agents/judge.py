@@ -1,4 +1,4 @@
-"""JudgeAgent: Constrained Synthesizer called only when debaters are not unanimous."""
+"""JudgeAgent: Constrained Synthesizer — always called after debate ends."""
 
 import re
 

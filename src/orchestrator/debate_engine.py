@@ -50,7 +50,7 @@ class DebateEngine:
                         break
 
             resolution = await self.orchestrator.resolve(
-                statement, evidence, all_rounds, all_rounds[-1]
+                statement, evidence, all_rounds
             )
 
             n_debaters = len(self.orchestrator.debaters)

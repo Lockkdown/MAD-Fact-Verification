@@ -18,7 +18,7 @@ routing:
 data:
   split: "dev"
   mode: "gold_evidence"
-  batch_size: 6
+  batch_size: 14
   dev_path: "src/data/preprocessed/xlmr/vifactcheck_dev.jsonl"
   test_path: "src/data/preprocessed/xlmr/vifactcheck_test.jsonl"
 

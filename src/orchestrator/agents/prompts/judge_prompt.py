@@ -13,7 +13,7 @@ STRICT RULES:
 - VERDICT must be exactly one of: {", ".join(LABEL_NAMES)}
 - Base your verdict on the debaters' arguments AND the provided evidence — no external knowledge beyond what is provided
 - You MUST cite a specific argument from a debater
-- You CANNOT introduce new evidence or claims not mentioned by any debater"""
+- You CANNOT introduce external knowledge beyond the provided evidence and debaters' arguments"""
 
 
 def build_judge_prompt(
