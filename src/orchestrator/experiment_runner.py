@@ -131,6 +131,7 @@ async def run_debate_experiment(
     config_path: str,
     device: torch.device,
     split_override: str | None = None,
+    max_samples: int | None = None,
 ) -> None:
     """Top-level orchestrator: load config, build engine, run debate on split."""
     resolved = Path(config_path) if Path(config_path).is_absolute() else PROJECT_ROOT / config_path
@@ -144,9 +145,13 @@ async def run_debate_experiment(
     done_ids = load_checkpoint(cfg["output"]["log_path"])
     pending = [s for s in all_samples if s["id"] not in done_ids]
 
+    if max_samples is not None:
+        pending = pending[:max_samples]
+
     logger.info(
-        "Samples: total=%d  done=%d  pending=%d",
+        "Samples: total=%d  done=%d  pending=%d%s",
         len(all_samples), len(done_ids), len(pending),
+        f"  (capped at {max_samples})" if max_samples is not None else "",
     )
     if not pending:
         logger.info("All samples already processed — nothing to do.")

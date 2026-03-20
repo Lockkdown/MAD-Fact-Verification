@@ -55,6 +55,13 @@ def _parse_args() -> argparse.Namespace:
         dest="plm_scores",
         help="Path to PLM confidence JSONL (required for --phase sweep)",
     )
+    parser.add_argument(
+        "--max-samples",
+        default=None,
+        type=int,
+        dest="max_samples",
+        help="Limit number of samples (smoke test). Omit for full run.",
+    )
     return parser.parse_args()
 
 
@@ -150,11 +157,11 @@ def _run_eval_all() -> None:
     logger.info("=== All 4 models evaluated ===")
 
 
-def _run_debate(config_path: str, split_override: str | None) -> None:
+def _run_debate(config_path: str, split_override: str | None, max_samples: int | None) -> None:
     """Run full or hybrid debate experiment on configured split."""
     import asyncio
     from src.orchestrator.experiment_runner import run_debate_experiment
-    asyncio.run(run_debate_experiment(config_path, _get_device(), split_override))
+    asyncio.run(run_debate_experiment(config_path, _get_device(), split_override, max_samples))
 
 
 def _run_sweep(config_path: str, plm_scores_path: str) -> None:
@@ -201,7 +208,7 @@ def main() -> None:
         if not args.config:
             logger.error("--config is required for --phase debate")
             sys.exit(1)
-        _run_debate(args.config, args.split)
+        _run_debate(args.config, args.split, args.max_samples)
 
     elif args.phase == "sweep":
         if not args.config:
