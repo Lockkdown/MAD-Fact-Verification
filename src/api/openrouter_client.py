@@ -8,6 +8,8 @@ from typing import Optional
 import aiohttp
 from dotenv import load_dotenv
 
+_RETRYABLE_ERRORS = (aiohttp.ClientError, OSError, ValueError, TimeoutError)
+
 load_dotenv()
 
 OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
@@ -41,9 +43,10 @@ class OpenRouterClient:
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Return shared session, creating one if needed."""
+        """Return shared session with connection pool limits, creating one if needed."""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            connector = aiohttp.TCPConnector(limit=50, limit_per_host=20)
+            self._session = aiohttp.ClientSession(connector=connector)
         return self._session
 
     async def close(self) -> None:
@@ -87,6 +90,12 @@ class OpenRouterClient:
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=self.timeout),
                 ) as resp:
+                    if resp.status == 429:  # rate limit — backoff longer
+                        body = await resp.text()
+                        last_error = f"HTTP 429: {body[:200]}"
+                        if attempt < self.max_retries - 1:
+                            await asyncio.sleep(5 * (2 ** attempt))
+                        continue
                     if resp.status != 200:
                         body = await resp.text()
                         raise ValueError(f"HTTP {resp.status}: {body[:200]}")
@@ -100,10 +109,11 @@ class OpenRouterClient:
                         output_tokens=usage.get("completion_tokens", 0),
                         success=True,
                     )
-            except Exception as exc:
+            except asyncio.CancelledError:
+                raise  # never retry cancellation — propagate immediately
+            except _RETRYABLE_ERRORS as exc:
                 last_error = str(exc)
-                # Reset session on error — may be stale connection
-                await self.close()
+                # do NOT close shared session — would kill all concurrent in-flight requests
                 if attempt < self.max_retries - 1:
                     await asyncio.sleep(2 ** attempt)  # exponential backoff
 

@@ -1,6 +1,8 @@
 """Debater prompt builder. Round 1: no prior context. Round 2+: include all prior round summaries."""
 
-DEBATER_R1_SYSTEM = """You are an EVIDENCE-BASED FACT-CHECKER.
+DEBATER_R1_SYSTEM = """LANGUAGE RULE: YOU MUST RESPOND IN ENGLISH ONLY. Do NOT use Vietnamese or any other language regardless of the language of the claim or evidence.
+
+You are an EVIDENCE-BASED FACT-CHECKER.
 Use ONLY the provided evidence. Do NOT use outside knowledge.
 
 STEP 1 — BREAK CLAIM INTO KEY PARTS (2-4 parts):
@@ -23,16 +25,19 @@ Output JSON only:
   "reasoning": "1-2 sentences"
 }"""
 
-DEBATER_R2_SYSTEM = """You are an EVIDENCE-BASED FACT-CHECKER in a multi-agent debate.
-Review the arguments from other agents and provide your updated verdict.
+DEBATER_R2_SYSTEM = """LANGUAGE RULE: YOU MUST RESPOND IN ENGLISH ONLY. Do NOT use Vietnamese or any other language regardless of the language of the claim or evidence.
+
+You are an EVIDENCE-BASED FACT-CHECKER in a multi-agent debate.
+Review the prior round arguments and provide your updated verdict.
 
 You MUST output EXACTLY this format — no other text:
 VERDICT: <Support|Refute|NEI>
-REASONING: <2-4 sentences citing specific arguments you agree or disagree with>
+REASONING: <2-4 sentences that explicitly name the agents you agree or disagree with, e.g. "Agent D2 argues X but...">
 
 Rules:
 - Base your verdict ONLY on the provided evidence
-- Cite specific arguments from other agents when updating your position
+- You MUST reference at least one other agent by name (e.g. Agent D1, Agent D2) in your reasoning
+- If you change your verdict, explain which agent's argument convinced you
 - Do NOT introduce external knowledge
 - NEI means the evidence is insufficient to confirm or refute"""
 

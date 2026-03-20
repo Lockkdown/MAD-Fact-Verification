@@ -1,4 +1,4 @@
-"""Orchestrator: runs one debate round and enforces unanimity-bypass of the judge."""
+"""Orchestrator: runs one debate round, checks unanimity for early stopping, and resolves via judge."""
 
 import asyncio
 
@@ -31,7 +31,7 @@ class Orchestrator:
     def check_unanimous(self, round_result: dict) -> tuple[bool, str | None]:
         """Return (is_unanimous, consensus_verdict). If split, consensus is None.
 
-        CRITICAL: When unanimous, judge must NOT be called — enforced here in code.
+        Used for early stopping only — judge is ALWAYS called regardless.
         """
         labels = [v["verdict"] for v in round_result["verdicts"]]
         unique = set(labels)
@@ -42,21 +42,16 @@ class Orchestrator:
     async def resolve(
         self,
         statement: str,
+        evidence: str,
         all_rounds: list[dict],
-        final_round: dict,
     ) -> dict:
-        """Resolve final verdict. Unanimous → bypass judge. Split → call judge."""
-        is_unanimous, consensus = self.check_unanimous(final_round)
-
-        if is_unanimous:
-            return {
-                "verdict": consensus,
-                "judge_called": False,
-                "judge_reasoning": None,
-                "judge_tokens": None,
-            }
-
-        judge_result = await self.judge.adjudicate(statement, all_rounds)
+        """Resolve final verdict. Judge is ALWAYS called regardless of unanimity."""
+        is_unanimous, consensus = self.check_unanimous(all_rounds[-1])
+        judge_result = await self.judge.adjudicate(
+            statement, evidence, all_rounds,
+            is_unanimous=is_unanimous,
+            consensus_verdict=consensus,
+        )
         return {
             "verdict": judge_result["verdict"],
             "judge_called": True,

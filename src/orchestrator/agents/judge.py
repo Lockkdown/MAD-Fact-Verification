@@ -1,4 +1,4 @@
-"""JudgeAgent: Constrained Synthesizer called only when debaters are not unanimous."""
+"""JudgeAgent: Constrained Synthesizer — always called after debate ends."""
 
 import re
 
@@ -17,10 +17,17 @@ class JudgeAgent:
     async def adjudicate(
         self,
         statement: str,
+        evidence: str,
         all_rounds: list[dict],
+        is_unanimous: bool = False,
+        consensus_verdict: str | None = None,
     ) -> dict:
-        """Resolve a split verdict. Returns structured result dict."""
-        messages = build_judge_prompt(statement, all_rounds)
+        """Resolve verdict. Returns structured result dict."""
+        messages = build_judge_prompt(
+            statement, evidence, all_rounds,
+            is_unanimous=is_unanimous,
+            consensus_verdict=consensus_verdict,
+        )
         # Lower temperature for more deterministic adjudication
         response = await self.client.complete(self.model, messages, temperature=0.3)
         verdict, reasoning = self._parse_response(response)

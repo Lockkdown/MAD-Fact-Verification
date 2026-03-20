@@ -5,7 +5,7 @@ debate:
   panel:
     debaters:
       - agent_id: "D1"
-        model: "google/gemini-2.5-flash"
+        model: "mistralai/mistral-small-2603"
       - agent_id: "D2"
         model: "openai/gpt-4o-mini"
       - agent_id: "D3"
@@ -20,7 +20,7 @@ routing:
 data:
   split: "dev"
   mode: "gold_evidence"
-  batch_size: 10
+  batch_size: 14
   dev_path: "src/data/preprocessed/xlmr/vifactcheck_dev.jsonl"
   test_path: "src/data/preprocessed/xlmr/vifactcheck_test.jsonl"
 

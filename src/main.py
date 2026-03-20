@@ -29,7 +29,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phase",
         required=True,
-        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "sweep"],
+        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep", "retry"],
         help="Pipeline phase to run",
     )
     parser.add_argument(
@@ -54,6 +54,32 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         dest="plm_scores",
         help="Path to PLM confidence JSONL (required for --phase sweep)",
+    )
+    parser.add_argument(
+        "--max-samples",
+        default=None,
+        type=int,
+        dest="max_samples",
+        help="Limit number of samples (smoke test). Omit for full run.",
+    )
+    parser.add_argument(
+        "--configs-dir",
+        default=None,
+        dest="configs_dir",
+        help="Directory containing YAML configs to run sequentially (used with --phase debate-all)",
+    )
+    parser.add_argument(
+        "--parallel",
+        default=1,
+        type=int,
+        dest="parallel",
+        help="Number of configs to run concurrently in --phase debate-all (default: 1 = sequential)",
+    )
+    parser.add_argument(
+        "--retry",
+        default=None,
+        dest="retry",
+        help="Path to errors JSONL produced by DebateLogger.extract_errors() (required for --phase retry)",
     )
     return parser.parse_args()
 
@@ -150,17 +176,58 @@ def _run_eval_all() -> None:
     logger.info("=== All 4 models evaluated ===")
 
 
-def _run_debate(config_path: str, split_override: str | None) -> None:
+def _run_debate(config_path: str, split_override: str | None, max_samples: int | None) -> None:
     """Run full or hybrid debate experiment on configured split."""
     import asyncio
     from src.orchestrator.experiment_runner import run_debate_experiment
-    asyncio.run(run_debate_experiment(config_path, _get_device(), split_override))
+    asyncio.run(run_debate_experiment(config_path, _get_device(), split_override, max_samples))
+
+
+def _run_debate_all(
+    configs_dir: str,
+    split_override: str | None,
+    max_samples: int | None,
+    parallel: int,
+) -> None:
+    """Run all YAML configs in a directory sequentially or with limited concurrency."""
+    import asyncio
+    from pathlib import Path
+    from src.orchestrator.experiment_runner import run_multi_config
+    from src.utils.common import PROJECT_ROOT
+
+    config_dir_path = Path(configs_dir)
+    resolved_configs_dir = (
+        config_dir_path if config_dir_path.is_absolute() else PROJECT_ROOT / config_dir_path
+    )
+    config_paths = sorted(resolved_configs_dir.glob("*.yaml"))
+    if not config_paths:
+        logger.error("No YAML configs found in: %s", resolved_configs_dir)
+        sys.exit(1)
+
+    logger.info("Found %d configs in %s (parallel=%d)", len(config_paths), resolved_configs_dir, parallel)
+    for p in config_paths:
+        logger.info("  %s", p.name)
+
+    asyncio.run(run_multi_config(
+        config_paths=[str(p) for p in config_paths],
+        device=_get_device(),
+        split_override=split_override,
+        max_samples=max_samples,
+        max_concurrent=parallel,
+    ))
 
 
 def _run_sweep(config_path: str, plm_scores_path: str) -> None:
     """Run virtual threshold sweep using saved debate + PLM confidence logs."""
     from src.orchestrator.threshold_sweep import run_threshold_sweep_from_config
     run_threshold_sweep_from_config(config_path, plm_scores_path)
+
+
+def _run_retry(config_path: str, errors_jsonl_path: str) -> None:
+    """Retry failed samples from a previous debate run and merge results back."""
+    import asyncio
+    from src.orchestrator.retry_runner import run_retry_experiment
+    asyncio.run(run_retry_experiment(config_path, errors_jsonl_path))
 
 
 def main() -> None:
@@ -201,7 +268,13 @@ def main() -> None:
         if not args.config:
             logger.error("--config is required for --phase debate")
             sys.exit(1)
-        _run_debate(args.config, args.split)
+        _run_debate(args.config, args.split, args.max_samples)
+
+    elif args.phase == "debate-all":
+        if not args.configs_dir:
+            logger.error("--configs-dir is required for --phase debate-all")
+            sys.exit(1)
+        _run_debate_all(args.configs_dir, args.split, args.max_samples, args.parallel)
 
     elif args.phase == "sweep":
         if not args.config:
@@ -211,6 +284,15 @@ def main() -> None:
             logger.error("--plm-scores is required for --phase sweep")
             sys.exit(1)
         _run_sweep(args.config, args.plm_scores)
+
+    elif args.phase == "retry":
+        if not args.config:
+            logger.error("--config is required for --phase retry")
+            sys.exit(1)
+        if not args.retry:
+            logger.error("--retry is required for --phase retry")
+            sys.exit(1)
+        _run_retry(args.config, args.retry)
 
 
 if __name__ == "__main__":

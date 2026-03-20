@@ -50,11 +50,11 @@ class DebateEngine:
                         break
 
             resolution = await self.orchestrator.resolve(
-                statement, all_rounds, all_rounds[-1]
+                statement, evidence, all_rounds
             )
 
             n_debaters = len(self.orchestrator.debaters)
-            num_agent_calls = rounds_used * n_debaters + (1 if resolution["judge_called"] else 0)
+            num_agent_calls = rounds_used * n_debaters + 1  # judge always called
 
             result = {
                 "sample_id": sample_id,
@@ -74,13 +74,14 @@ class DebateEngine:
                 "correct": resolution["verdict"] == gold_label,
             }
 
-        except Exception as exc:
+        except BaseException as exc:  # covers CancelledError (BaseException in Python 3.10+)
             result = self._make_error_result(
                 sample_id, gold_label, mode, m_star_confidence, str(exc)
             )
 
         finally:
-            self.logger.log(result)
+            if result:  # skip logging empty dict if raise happens before result is set
+                self.logger.log(result)
 
         return result
 

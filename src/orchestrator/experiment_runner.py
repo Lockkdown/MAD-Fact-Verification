@@ -11,6 +11,8 @@ import torch
 import yaml
 from tqdm import tqdm
 
+from src.outputs.metrics.debate_logger import DebateLogger
+from src.outputs.metrics.debate_metrics import compute_and_save_debate_metrics
 from src.orchestrator.debate_engine import DebateEngine
 from src.orchestrator.mad_builder import build_client, build_debate_engine, build_routing_gate
 from src.orchestrator.routing_gate import RoutingGate
@@ -112,11 +114,15 @@ async def run_debate_on_split(
     tasks = [process_one(s) for s in samples]
     with tqdm(total=len(samples), desc="Debating", unit="sample") as pbar:
         for coro in asyncio.as_completed(tasks):
-            result = await coro
-            results.append(result)
+            try:
+                result = await coro
+                results.append(result)
+            except BaseException as exc:  # prevent one task failure from killing the runner
+                logger.error("Task raised unhandled exception — sample skipped: %s", exc)
             pbar.update(1)
-            correct_count = sum(r["correct"] for r in results)
-            pbar.set_postfix_str(f"Acc: {correct_count / len(results):.1%}")
+            if results:
+                correct_count = sum(r["correct"] for r in results)
+                pbar.set_postfix_str(f"Acc: {correct_count / len(results):.1%}")
             if len(results) % 50 == 0:
                 gc.collect()  # periodic memory release for long runs
 
@@ -127,6 +133,7 @@ async def run_debate_experiment(
     config_path: str,
     device: torch.device,
     split_override: str | None = None,
+    max_samples: int | None = None,
 ) -> None:
     """Top-level orchestrator: load config, build engine, run debate on split."""
     resolved = Path(config_path) if Path(config_path).is_absolute() else PROJECT_ROOT / config_path
@@ -140,12 +147,21 @@ async def run_debate_experiment(
     done_ids = load_checkpoint(cfg["output"]["log_path"])
     pending = [s for s in all_samples if s["id"] not in done_ids]
 
+    if max_samples is not None:
+        pending = pending[:max_samples]
+
     logger.info(
-        "Samples: total=%d  done=%d  pending=%d",
+        "Samples: total=%d  done=%d  pending=%d%s",
         len(all_samples), len(done_ids), len(pending),
+        f"  (capped at {max_samples})" if max_samples is not None else "",
     )
     if not pending:
-        logger.info("All samples already processed — nothing to do.")
+        logger.info("All samples already processed — recomputing metrics only.")
+        compute_and_save_debate_metrics(
+            log_path=cfg["output"]["log_path"],
+            metrics_path=cfg["output"]["metrics_path"],
+            cfg=cfg,
+        )
         return
 
     mode = cfg["debate"]["mode"]
@@ -173,5 +189,36 @@ async def run_debate_experiment(
     finally:
         debate_logger.close()
         await client.close()
+        compute_and_save_debate_metrics(
+            log_path=cfg["output"]["log_path"],
+            metrics_path=cfg["output"]["metrics_path"],
+            cfg=cfg,
+        )
+        logger.info("=== Debate complete. Logs → %s ===", cfg["output"]["log_path"])
 
-    logger.info("=== Debate complete. Logs → %s ===", cfg["output"]["log_path"])
+
+async def run_multi_config(
+    config_paths: list[str],
+    device: torch.device,
+    split_override: str | None = None,
+    max_samples: int | None = None,
+    max_concurrent: int = 1,
+) -> None:
+    """Run multiple debate configs sequentially or concurrently.
+
+    max_concurrent=1  → sequential (safe, no rate-limit risk)
+    max_concurrent=2+ → N configs share the event loop (faster, more API load)
+    """
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def _run_one(cfg_path: str) -> None:
+        async with sem:
+            config_name = Path(cfg_path).stem
+            logger.info(">>> Starting config: %s", config_name)
+            await run_debate_experiment(cfg_path, device, split_override, max_samples)
+            logger.info("<<< Done config: %s", config_name)
+
+    tasks = [_run_one(p) for p in config_paths]
+    await asyncio.gather(*tasks)
+
+    logger.info("=== All %d configs complete ===", len(config_paths))
