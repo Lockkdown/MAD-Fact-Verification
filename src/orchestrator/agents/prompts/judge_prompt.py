@@ -23,9 +23,9 @@ REASONING: <your evaluation in 2-4 sentences>
 STRICT RULES:
 - VERDICT must be exactly one of: {", ".join(LABEL_NAMES)}
 - Base your verdict SOLELY on the provided evidence and debaters' arguments — do NOT introduce any external knowledge
-- Do NOT count how many debaters support each position — evaluate reasoning quality only
-- A single well-reasoned argument that correctly interprets the evidence outweighs multiple poorly-reasoned arguments
-- NEI is valid ONLY when the evidence genuinely lacks information — not as a safe middle ground"""
+- Do NOT count how many debaters support each position — evaluate how well each argument is grounded in the provided evidence
+- An argument that stays within what the evidence explicitly says deserves more weight than one that reads into or extrapolates from it
+- NEI reflects genuine evidentiary insufficiency — assign it when warranted by the evidence, neither avoiding it nor defaulting to it. If the evidence addresses the core claim, minor unverified details alone do not warrant NEI"""
 
 
 def build_judge_prompt(
@@ -41,17 +41,17 @@ def build_judge_prompt(
     if is_unanimous and consensus_verdict is not None:
         context_note = f"NOTE: All debaters reached unanimous consensus on [{consensus_verdict}].\n\n"
         task_instruction = (
-            "Review the debate transcript above. "
-            "Validate the consensus and explain your reasoning briefly."
+            "The debaters reached unanimous consensus. "
+            "Verify this conclusion against the EVIDENCE — confirm it if the evidence supports it, "
+            "or correct it if the evidence clearly points elsewhere. Explain briefly."
         )
     else:
         context_note = ""
         task_instruction = (
             "Review the debate transcript above. Follow these steps:\n"
-            "1. First, independently analyze what the EVIDENCE says about the CLAIM (2-3 sentences).\n"
-            "2. Then, evaluate which side's arguments correctly align with the evidence.\n"
-            "3. Deliver your verdict based on evidence-argument alignment — "
-            "NOT on how many debaters hold each position."
+            "1. Before engaging with the debate, determine what verdict the evidence alone supports — this is your working verdict.\n"
+            "2. Check whether any debater has identified something in the evidence that you may have missed.\n"
+            "3. Maintain your working verdict unless a debater's argument reveals something in the evidence that concretely changes the analysis."
         )
 
     user_content = (
