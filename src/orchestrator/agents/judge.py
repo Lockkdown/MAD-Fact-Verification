@@ -1,5 +1,6 @@
 """JudgeAgent: Constrained Synthesizer — always called after debate ends."""
 
+import asyncio
 import re
 
 from src.api.openrouter_client import LLMResponse, OpenRouterClient
@@ -10,9 +11,10 @@ from src.utils.constants import VALID_LABELS
 class JudgeAgent:
     """Judge agent that resolves split verdicts by evaluating argument quality."""
 
-    def __init__(self, model: str, client: OpenRouterClient):
+    def __init__(self, model: str, client: OpenRouterClient, max_retries: int = 2):
         self.model = model
         self.client = client
+        self.max_retries = max_retries
 
     async def adjudicate(
         self,
@@ -22,15 +24,23 @@ class JudgeAgent:
         is_unanimous: bool = False,
         consensus_verdict: str | None = None,
     ) -> dict:
-        """Resolve verdict. Returns structured result dict."""
+        """Resolve verdict. Retries up to max_retries times on content parse failure."""
         messages = build_judge_prompt(
             statement, evidence, all_rounds,
             is_unanimous=is_unanimous,
             consensus_verdict=consensus_verdict,
         )
-        # Lower temperature for more deterministic adjudication
-        response = await self.client.complete(self.model, messages, temperature=0.3)
-        verdict, reasoning = self._parse_response(response)
+        response = LLMResponse(content="", model=self.model, input_tokens=0, output_tokens=0, success=False)
+        for attempt in range(self.max_retries):
+            # Lower temperature for more deterministic adjudication
+            response = await self.client.complete(self.model, messages, temperature=0.3)
+            verdict, reasoning = self._parse_response(response)
+            if response.success and verdict in VALID_LABELS:
+                break
+            if attempt < self.max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+        else:
+            verdict, reasoning = self._parse_response(response)
         return {
             "verdict": verdict,
             "reasoning": reasoning,

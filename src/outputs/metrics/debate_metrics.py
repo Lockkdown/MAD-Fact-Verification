@@ -80,8 +80,23 @@ def _compute_metrics(samples: list[dict], total_run: int, cfg: dict) -> dict:
     avg_rounds_used = sum(s["rounds_used"] for s in samples) / total
     judge_called_rate = sum(1 for s in samples if s["judge_called"]) / total
 
-    # early_stop: rounds_used < k_max (stopped before all rounds exhausted)
-    early_stop_rate = sum(1 for s in samples if s["rounds_used"] < k_max) / total
+    mode = cfg["debate"]["mode"]
+    debate_samples = (
+        [s for s in samples if s.get("routed_to_debate", True)]
+        if mode == "hybrid_debate" else samples
+    )
+    n_debate = len(debate_samples)
+
+    # early_stop: only over samples that actually debated (avoids fast-path 0s inflating rate)
+    early_stop_rate = (
+        sum(1 for s in debate_samples if s["rounds_used"] < k_max) / n_debate
+        if n_debate > 0 else 0.0
+    )
+    # avg rounds for samples that actually entered debate (meaningful for k=5 ablation)
+    avg_rounds_per_debate = (
+        round(sum(s["rounds_used"] for s in debate_samples) / n_debate, 2)
+        if n_debate > 0 else None
+    )
 
     # unanimous_at_round distribution
     round_counts: dict[str, int] = defaultdict(int)
@@ -100,9 +115,14 @@ def _compute_metrics(samples: list[dict], total_run: int, cfg: dict) -> dict:
     error_count = total_run - total
     error_rate = round(error_count / total_run, 4) if total_run > 0 else 0.0
 
+    dsr: float | None = None
+    if mode == "hybrid_debate":
+        fast_path_count = sum(1 for s in samples if not s.get("routed_to_debate", True))
+        dsr = round(fast_path_count / total, 4) if total > 0 else 0.0
+
     return {
         "config": {
-            "mode": cfg["debate"]["mode"],
+            "mode": mode,
             "n": n_debaters,
             "k": k_max,
         },
@@ -115,6 +135,8 @@ def _compute_metrics(samples: list[dict], total_run: int, cfg: dict) -> dict:
         "f1_per_label": f1_per_label,
         "avg_agent_calls": round(avg_agent_calls, 2),
         "avg_rounds_used": round(avg_rounds_used, 2),
+        "avg_rounds_per_debate": avg_rounds_per_debate,
+        "dsr": dsr,
         "unanimous_rate": unanimous_rate,
         "judge_called_rate": round(judge_called_rate, 4),
         "early_stop_rate": round(early_stop_rate, 4),

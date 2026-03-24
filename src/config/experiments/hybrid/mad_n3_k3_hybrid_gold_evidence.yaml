@@ -16,7 +16,7 @@ debate:
 routing:
   plm_checkpoint: "reports/models_plm/phobert/checkpoints/best_model.pt"
   plm_model: "vinai/phobert-base"
-  threshold: null
+  threshold: 0.85
 
 data:
   split: "test"

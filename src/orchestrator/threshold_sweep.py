@@ -29,7 +29,7 @@ def load_plm_scores(scores_path: str) -> dict[str, dict]:
     Each entry must have: sample_id, confidence, plm_verdict, gold_label.
     """
     scores: dict[str, dict] = {}
-    with open(scores_path, encoding="utf-8") as f:
+    with open(PROJECT_ROOT / scores_path, encoding="utf-8") as f:
         for line in f:
             r = json.loads(line)
             scores[str(r["sample_id"])] = r
