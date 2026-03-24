@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from src.outputs.metrics.debate_logger import DebateLogger
 from src.outputs.metrics.debate_metrics import compute_and_save_debate_metrics
+from src.outputs.visualizations.plot_debate import plot_debate_results
 from src.orchestrator.debate_engine import DebateEngine
 from src.orchestrator.mad_builder import build_client, build_debate_engine, build_routing_gate
 from src.orchestrator.routing_gate import RoutingGate
@@ -162,6 +163,7 @@ async def run_debate_experiment(
             metrics_path=cfg["output"]["metrics_path"],
             cfg=cfg,
         )
+        plot_debate_results(cfg["output"]["viz_dir"], cfg["output"]["log_path"])
         return
 
     mode = cfg["debate"]["mode"]
@@ -194,6 +196,7 @@ async def run_debate_experiment(
             metrics_path=cfg["output"]["metrics_path"],
             cfg=cfg,
         )
+        plot_debate_results(cfg["output"]["viz_dir"], cfg["output"]["log_path"])
         logger.info("=== Debate complete. Logs → %s ===", cfg["output"]["log_path"])
 
 

@@ -10,6 +10,7 @@ import yaml
 
 from src.orchestrator.debate_engine import DebateEngine
 from src.outputs.metrics.debate_metrics import compute_and_save_debate_metrics
+from src.outputs.visualizations.plot_debate import plot_debate_results
 from src.utils.common import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,9 @@ class RetryRunner:
             metrics_path=metrics_path,
             cfg=self.cfg,
         )
+        viz_dir = self.cfg["output"].get("viz_dir")
+        if viz_dir:
+            plot_debate_results(viz_dir, original_log_path)
         logger.info("Metrics recomputed → %s", metrics_path)
 
     # --- private helpers ---

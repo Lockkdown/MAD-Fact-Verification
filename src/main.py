@@ -29,7 +29,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phase",
         required=True,
-        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep", "retry"],
+        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep", "plm-scores", "sweep-summary", "retry"],
         help="Pipeline phase to run",
     )
     parser.add_argument(
@@ -80,6 +80,12 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         dest="retry",
         help="Path to errors JSONL produced by DebateLogger.extract_errors() (required for --phase retry)",
+    )
+    parser.add_argument(
+        "--output",
+        default="reports/debate/sweep/plm_dev_scores.jsonl",
+        dest="output",
+        help="Output path for PLM scores JSONL (used with --phase plm-scores)",
     )
     return parser.parse_args()
 
@@ -217,6 +223,18 @@ def _run_debate_all(
     ))
 
 
+def _run_sweep_summary() -> None:
+    """Consolidate all per-config sweep results into a single threshold summary JSON."""
+    from src.orchestrator.sweep_summary import generate_sweep_summary
+    generate_sweep_summary()
+
+
+def _run_plm_scores(config_path: str, output_path: str) -> None:
+    """Run PhoBERT M* on DEV split and export confidence scores JSONL."""
+    from src.models.infer_plm_scores import run_plm_inference
+    run_plm_inference(config_path, output_path, _get_device())
+
+
 def _run_sweep(config_path: str, plm_scores_path: str) -> None:
     """Run virtual threshold sweep using saved debate + PLM confidence logs."""
     from src.orchestrator.threshold_sweep import run_threshold_sweep_from_config
@@ -275,6 +293,15 @@ def main() -> None:
             logger.error("--configs-dir is required for --phase debate-all")
             sys.exit(1)
         _run_debate_all(args.configs_dir, args.split, args.max_samples, args.parallel)
+
+    elif args.phase == "sweep-summary":
+        _run_sweep_summary()
+
+    elif args.phase == "plm-scores":
+        if not args.config:
+            logger.error("--config is required for --phase plm-scores")
+            sys.exit(1)
+        _run_plm_scores(args.config, args.output)
 
     elif args.phase == "sweep":
         if not args.config:
