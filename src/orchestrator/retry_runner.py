@@ -134,6 +134,7 @@ class RetryRunner:
                     mode=err.get("mode", self.cfg["debate"]["mode"]),
                     routed_to_debate=True,
                     m_star_confidence=err.get("m_star_confidence"),
+                    m_star_verdict=err.get("m_star_verdict"),
                 )
 
             if "error" in result:

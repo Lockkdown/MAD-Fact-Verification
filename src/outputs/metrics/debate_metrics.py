@@ -58,6 +58,47 @@ def _load_logs(log_path: str) -> tuple[list[dict], int]:
     return results, total_count
 
 
+def _get_r1_majority_verdict(per_round_verdicts: list[dict]) -> str | None:
+    """Extract majority verdict from round 1 debater votes."""
+    if not per_round_verdicts:
+        return None
+    r1_verdicts = [v["verdict"] for v in per_round_verdicts[0].get("verdicts", [])]
+    if not r1_verdicts:
+        return None
+    return max(set(r1_verdicts), key=r1_verdicts.count)
+
+
+def _compute_verdict_flip_rate(debate_samples: list[dict]) -> float:
+    """% debate-path samples whose final verdict differs from R1 majority verdict."""
+    eligible = [s for s in debate_samples if s.get("per_round_verdicts")]
+    if not eligible:
+        return 0.0
+    flipped = sum(
+        1 for s in eligible
+        if _get_r1_majority_verdict(s["per_round_verdicts"]) != s["final_verdict"]
+    )
+    return round(flipped / len(eligible), 4)
+
+
+def _compute_routing_rates(samples: list[dict]) -> tuple[float, float]:
+    """Return (routing_fp_rate, routing_fn_rate) for hybrid mode.
+
+    FP: debate-path where PLM would have been correct (needless debate call).
+    FN: fast-path where PLM was wrong (debate was skipped but needed).
+    """
+    fast_path = [s for s in samples if not s.get("routed_to_debate", True)]
+    debate_path = [s for s in samples if s.get("routed_to_debate", True)]
+
+    fn_count = sum(1 for s in fast_path if s["final_verdict"] != s["gold_label"])
+    routing_fn_rate = round(fn_count / len(fast_path), 4) if fast_path else 0.0
+
+    debate_with_verdict = [s for s in debate_path if s.get("m_star_verdict") is not None]
+    fp_count = sum(1 for s in debate_with_verdict if s["m_star_verdict"] == s["gold_label"])
+    routing_fp_rate = round(fp_count / len(debate_with_verdict), 4) if debate_with_verdict else 0.0
+
+    return routing_fp_rate, routing_fn_rate
+
+
 def _compute_metrics(samples: list[dict], total_run: int, cfg: dict) -> dict:
     """Compute all debate metrics from a list of completed sample results."""
     n_debaters = cfg["debate"]["panel"]["debaters"].__len__()
@@ -116,9 +157,14 @@ def _compute_metrics(samples: list[dict], total_run: int, cfg: dict) -> dict:
     error_rate = round(error_count / total_run, 4) if total_run > 0 else 0.0
 
     dsr: float | None = None
+    routing_fp_rate: float | None = None
+    routing_fn_rate: float | None = None
     if mode == "hybrid_debate":
         fast_path_count = sum(1 for s in samples if not s.get("routed_to_debate", True))
         dsr = round(fast_path_count / total, 4) if total > 0 else 0.0
+        routing_fp_rate, routing_fn_rate = _compute_routing_rates(samples)
+
+    verdict_flip_rate = _compute_verdict_flip_rate(debate_samples)
 
     return {
         "config": {
@@ -137,6 +183,9 @@ def _compute_metrics(samples: list[dict], total_run: int, cfg: dict) -> dict:
         "avg_rounds_used": round(avg_rounds_used, 2),
         "avg_rounds_per_debate": avg_rounds_per_debate,
         "dsr": dsr,
+        "routing_fp_rate": routing_fp_rate,
+        "routing_fn_rate": routing_fn_rate,
+        "verdict_flip_rate": verdict_flip_rate,
         "unanimous_rate": unanimous_rate,
         "judge_called_rate": round(judge_called_rate, 4),
         "early_stop_rate": round(early_stop_rate, 4),

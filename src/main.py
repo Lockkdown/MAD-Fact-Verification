@@ -29,7 +29,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phase",
         required=True,
-        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep", "plm-scores", "sweep-summary", "retry"],
+        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep", "plm-scores", "sweep-summary", "retry", "analyze"],
         help="Pipeline phase to run",
     )
     parser.add_argument(
@@ -42,6 +42,20 @@ def _parse_args() -> argparse.Namespace:
         default="gold_evidence",
         choices=["gold_evidence", "full_context"],
         help="Input mode for estimate phase (default: gold_evidence)",
+    )
+    parser.add_argument(
+        "--debate-mode",
+        default=None,
+        choices=["full", "hybrid"],
+        dest="debate_mode",
+        help="Debate mode to analyze (required for --phase analyze)",
+    )
+    parser.add_argument(
+        "--judge-f1",
+        default=None,
+        type=float,
+        dest="judge_f1",
+        help="Judge-only baseline Macro F1 for DCS computation (optional, --phase analyze)",
     )
     parser.add_argument(
         "--split",
@@ -248,6 +262,15 @@ def _run_retry(config_path: str, errors_jsonl_path: str) -> None:
     asyncio.run(run_retry_experiment(config_path, errors_jsonl_path))
 
 
+def _run_analyze(debate_mode: str, judge_f1: float | None) -> None:
+    """Run cross-config analysis: summary table + 4 paper-ready charts for a debate mode."""
+    from src.outputs.metrics.cross_config_metrics import run_cross_config_analysis
+    from src.outputs.visualizations.plot_cross_config import generate_cross_config_plots
+
+    run_cross_config_analysis(debate_mode, judge_only_f1=judge_f1)
+    generate_cross_config_plots(debate_mode)
+
+
 def main() -> None:
     """Parse args and dispatch to the correct pipeline phase."""
     args = _parse_args()
@@ -320,6 +343,12 @@ def main() -> None:
             logger.error("--retry is required for --phase retry")
             sys.exit(1)
         _run_retry(args.config, args.retry)
+
+    elif args.phase == "analyze":
+        if not args.debate_mode:
+            logger.error("--debate-mode is required for --phase analyze")
+            sys.exit(1)
+        _run_analyze(args.debate_mode, args.judge_f1)
 
 
 if __name__ == "__main__":
