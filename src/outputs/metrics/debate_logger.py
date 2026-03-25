@@ -4,6 +4,8 @@ import json
 import logging
 from pathlib import Path
 
+from src.utils.common import PROJECT_ROOT
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,8 @@ class DebateLogger:
     @staticmethod
     def extract_errors(log_path: str) -> int:
         """Write error samples to <log_stem>_errors.jsonl. Returns count written."""
-        src = Path(log_path)
+        src_path = Path(log_path)
+        src = src_path if src_path.is_absolute() else PROJECT_ROOT / src_path
         if not src.exists():
             return 0
         errors = []
