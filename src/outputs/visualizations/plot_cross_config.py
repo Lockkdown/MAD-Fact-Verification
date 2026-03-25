@@ -5,13 +5,12 @@ from collections import defaultdict
 from pathlib import Path
 
 import matplotlib
+matplotlib.use("Agg")  # must be before pyplot import
 import matplotlib.pyplot as plt
 import numpy as np
 
 from src.outputs.metrics.cross_config_metrics import load_all_logs, load_all_metrics
 from src.utils.common import PROJECT_ROOT
-
-matplotlib.use("Agg")
 
 logger = logging.getLogger(__name__)
 

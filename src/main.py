@@ -29,7 +29,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phase",
         required=True,
-        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep", "plm-scores", "sweep-summary", "retry", "analyze"],
+        choices=["download", "preprocess", "estimate", "train", "train-all", "eval", "eval-all", "debate", "debate-all", "sweep", "plm-scores", "sweep-summary", "retry", "analyze", "sweep-chart", "b2-extract"],
         help="Pipeline phase to run",
     )
     parser.add_argument(
@@ -100,6 +100,18 @@ def _parse_args() -> argparse.Namespace:
         default="reports/debate/sweep/plm_dev_scores.jsonl",
         dest="output",
         help="Output path for PLM scores JSONL (used with --phase plm-scores)",
+    )
+    parser.add_argument(
+        "--log",
+        default=None,
+        dest="log",
+        help="Path to full-debate logs.jsonl for B2 extraction (--phase b2-extract)",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default="reports/debate/baselines",
+        dest="out_dir",
+        help="Output directory for B2 baselines JSON (--phase b2-extract, default: reports/debate/baselines)",
     )
     return parser.parse_args()
 
@@ -271,6 +283,18 @@ def _run_analyze(debate_mode: str, judge_f1: float | None) -> None:
     generate_cross_config_plots(debate_mode)
 
 
+def _run_sweep_chart() -> None:
+    """Generate A1 dual-axis threshold sweep chart from saved sweep_results.json files."""
+    from src.outputs.visualizations.plot_sweep import plot_threshold_sweep
+    plot_threshold_sweep()
+
+
+def _run_b2_extract(log_path: str, out_dir: str) -> None:
+    """Extract B2 single-agent baselines from Round 1 of full-debate logs."""
+    from src.outputs.metrics.extract_b2_baselines import compute_and_save_b2_metrics
+    compute_and_save_b2_metrics(log_path, out_dir)
+
+
 def main() -> None:
     """Parse args and dispatch to the correct pipeline phase."""
     args = _parse_args()
@@ -349,6 +373,15 @@ def main() -> None:
             logger.error("--debate-mode is required for --phase analyze")
             sys.exit(1)
         _run_analyze(args.debate_mode, args.judge_f1)
+
+    elif args.phase == "sweep-chart":
+        _run_sweep_chart()
+
+    elif args.phase == "b2-extract":
+        if not args.log:
+            logger.error("--log is required for --phase b2-extract (path to N=4 full-debate logs.jsonl)")
+            sys.exit(1)
+        _run_b2_extract(args.log, args.out_dir)
 
 
 if __name__ == "__main__":

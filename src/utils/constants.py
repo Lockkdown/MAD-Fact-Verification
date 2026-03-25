@@ -23,7 +23,7 @@ DEBATER_MODELS: list[str] = [
 ]
 JUDGE_MODEL: str = "deepseek/deepseek-chat"
 
-THRESHOLD_SWEEP: list[float] = [0.70, 0.80, 0.85, 0.90, 0.95]
+THRESHOLD_SWEEP: list[float] = [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
 OPTIMAL_THRESHOLD: float | None = None  # filled after Phase 3d dev sweep
 
 PANEL_SIZES: list[int] = [2, 3, 4]
