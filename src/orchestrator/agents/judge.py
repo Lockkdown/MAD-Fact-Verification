@@ -57,15 +57,9 @@ class JudgeAgent:
 
         text = response.content.strip()
 
-        # Try JSON first — used by judge-only mode (R1 debater prompt)
-        try:
-            data = json.loads(text)
-            verdict = data.get("verdict", "NEI")
-            reasoning = data.get("reasoning", text[:200])
-            if verdict in VALID_LABELS:
-                return verdict, str(reasoning)
-        except (json.JSONDecodeError, AttributeError):
-            pass
+        verdict, reasoning = self._parse_json_response(text)
+        if verdict in VALID_LABELS:
+            return verdict, reasoning
 
         # Fallback: VERDICT:/REASONING: format used by regular judge
         verdict_match = re.search(r"VERDICT:\s*(Support|Refute|NEI)", text)
@@ -78,3 +72,79 @@ class JudgeAgent:
             verdict = "NEI"
 
         return verdict, reasoning
+
+    def _parse_json_response(self, text: str) -> tuple[str | None, str]:
+        """Parse JSON-like judge output, including fenced JSON and partial fallback extraction."""
+        json_candidates = [text, self._strip_code_fences(text), self._extract_json_block(text)]
+        for candidate in json_candidates:
+            if not candidate:
+                continue
+            try:
+                data = json.loads(candidate)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            verdict = self._extract_verdict_from_dict(data)
+            reasoning = str(data.get("reasoning", text[:200]))
+            if verdict in VALID_LABELS:
+                return verdict, reasoning
+
+        verdict_match = re.search(r'"verdict"\s*:\s*"(Support|Refute|NEI)"', text)
+        if verdict_match:
+            return verdict_match.group(1), text[:200]
+
+        inferred_verdict = self._infer_verdict_from_parts(text)
+        if inferred_verdict in VALID_LABELS:
+            return inferred_verdict, text[:200]
+
+        return None, text[:200]
+
+    def _extract_verdict_from_dict(self, data: dict) -> str | None:
+        """Return explicit verdict or infer it from structured parts if missing."""
+        verdict = data.get("verdict")
+        if verdict in VALID_LABELS:
+            return str(verdict)
+
+        parts = data.get("parts")
+        if not isinstance(parts, list):
+            return None
+
+        statuses = {
+            str(part.get("status", "")).upper()
+            for part in parts
+            if isinstance(part, dict)
+        }
+        if "CONFLICT" in statuses:
+            return "Refute"
+        if "MISSING" in statuses:
+            return "NEI"
+        if statuses and statuses == {"COVERED"}:
+            return "Support"
+        return None
+
+    def _strip_code_fences(self, text: str) -> str:
+        """Remove surrounding markdown code fences from a JSON response."""
+        stripped = text.strip()
+        if not stripped.startswith("```"):
+            return stripped
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped)
+        return stripped.strip()
+
+    def _extract_json_block(self, text: str) -> str | None:
+        """Extract the first top-level JSON object from a text response."""
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return None
+        return text[start:end + 1]
+
+    def _infer_verdict_from_parts(self, text: str) -> str | None:
+        """Infer verdict from textual part statuses when JSON parsing fails."""
+        statuses = {status.upper() for status in re.findall(r'"status"\s*:\s*"(COVERED|MISSING|CONFLICT)"', text)}
+        if "CONFLICT" in statuses:
+            return "Refute"
+        if "MISSING" in statuses:
+            return "NEI"
+        if statuses and statuses == {"COVERED"}:
+            return "Support"
+        return None

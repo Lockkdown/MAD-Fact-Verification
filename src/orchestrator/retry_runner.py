@@ -30,11 +30,12 @@ async def run_retry_experiment(config_path: str, errors_jsonl_path: str) -> None
     dataset = _load_samples(cfg["data"][data_key])
 
     client = build_client()
-    engine, debate_logger = build_debate_engine(cfg, client, cfg["output"]["log_path"])
+    retry_log_path = str(Path(cfg["output"]["log_path"]).with_suffix(".retry_tmp.jsonl"))
+    engine, debate_logger = build_debate_engine(cfg, client, retry_log_path)
     runner = RetryRunner(cfg, batch_size=cfg["data"]["batch_size"])
 
     try:
-        await runner.run(
+        retry_results = await runner.run(
             error_jsonl_path=errors_jsonl_path,
             original_log_path=cfg["output"]["log_path"],
             debate_engine=engine,
@@ -43,6 +44,26 @@ async def run_retry_experiment(config_path: str, errors_jsonl_path: str) -> None
     finally:
         debate_logger.close()
         await client.close()
+
+    retry_log_resolved = _resolve(retry_log_path)
+    if retry_log_resolved.exists():
+        retry_log_resolved.unlink()
+
+    if not retry_results:
+        return
+
+    runner._merge_into_log(cfg["output"]["log_path"], retry_results)
+
+    metrics_path = str(Path(cfg["output"]["log_path"]).parent / "metrics.json")
+    compute_and_save_debate_metrics(
+        log_path=cfg["output"]["log_path"],
+        metrics_path=metrics_path,
+        cfg=cfg,
+    )
+    viz_dir = cfg["output"].get("viz_dir")
+    if viz_dir:
+        plot_debate_results(viz_dir, cfg["output"]["log_path"])
+    logger.info("Metrics recomputed → %s", metrics_path)
 
 
 class RetryRunner:
@@ -58,12 +79,12 @@ class RetryRunner:
         original_log_path: str,
         debate_engine: DebateEngine,
         dataset: list[dict],
-    ) -> None:
-        """Retry failed samples, merge into original log, recompute metrics."""
+    ) -> list[dict]:
+        """Retry failed samples and return in-memory results for later merge."""
         error_samples = self._load_error_samples(error_jsonl_path)
         if not error_samples:
             logger.info("No error samples found in %s — nothing to retry.", error_jsonl_path)
-            return
+            return []
 
         logger.info("Retrying %d failed sample(s)...", len(error_samples))
         dataset_by_id = {s["id"]: s for s in dataset}
@@ -76,19 +97,7 @@ class RetryRunner:
             "Retry complete: %d/%d succeeded, %d still failed",
             succeeded, len(error_samples), still_failed,
         )
-
-        self._merge_into_log(original_log_path, retry_results)
-
-        metrics_path = str(Path(original_log_path).parent / "metrics.json")
-        compute_and_save_debate_metrics(
-            log_path=original_log_path,
-            metrics_path=metrics_path,
-            cfg=self.cfg,
-        )
-        viz_dir = self.cfg["output"].get("viz_dir")
-        if viz_dir:
-            plot_debate_results(viz_dir, original_log_path)
-        logger.info("Metrics recomputed → %s", metrics_path)
+        return retry_results
 
     # --- private helpers ---
 
