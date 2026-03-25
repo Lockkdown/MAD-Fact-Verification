@@ -1,6 +1,7 @@
 """JudgeAgent: Constrained Synthesizer — always called after debate ends."""
 
 import asyncio
+import json
 import re
 
 from src.api.openrouter_client import LLMResponse, OpenRouterClient
@@ -50,11 +51,23 @@ class JudgeAgent:
         }
 
     def _parse_response(self, response: LLMResponse) -> tuple[str, str]:
-        """Extract VERDICT and REASONING from response. Fallback to NEI on failure."""
+        """Extract VERDICT and REASONING. Handles both JSON (R1 format) and VERDICT: regex."""
         if not response.success:
             return "NEI", f"Judge API call failed: {response.error}"
 
         text = response.content.strip()
+
+        # Try JSON first — used by judge-only mode (R1 debater prompt)
+        try:
+            data = json.loads(text)
+            verdict = data.get("verdict", "NEI")
+            reasoning = data.get("reasoning", text[:200])
+            if verdict in VALID_LABELS:
+                return verdict, str(reasoning)
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        # Fallback: VERDICT:/REASONING: format used by regular judge
         verdict_match = re.search(r"VERDICT:\s*(Support|Refute|NEI)", text)
         reasoning_match = re.search(r"REASONING:\s*(.+?)(?:\n\n|$)", text, re.DOTALL)
 

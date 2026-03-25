@@ -46,7 +46,11 @@ class Orchestrator:
         all_rounds: list[dict],
     ) -> dict:
         """Resolve final verdict. Judge is ALWAYS called regardless of unanimity."""
-        is_unanimous, consensus = self.check_unanimous(all_rounds[-1])
+        if not all_rounds:
+            # Judge-only mode (k=0): no debate context, call judge directly
+            is_unanimous, consensus = False, None
+        else:
+            is_unanimous, consensus = self.check_unanimous(all_rounds[-1])
         judge_result = await self.judge.adjudicate(
             statement, evidence, all_rounds,
             is_unanimous=is_unanimous,

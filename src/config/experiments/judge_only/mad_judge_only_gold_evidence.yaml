@@ -1,0 +1,24 @@
+debate:
+  mode: "full_debate"
+  rounds: 0              # k=0 → skip debate loop, call judge directly (B3 baseline)
+  early_stopping: false
+  panel:
+    debaters: []         # no debaters — judge only
+    judge:
+      model: "deepseek/deepseek-chat"
+
+routing:
+  plm_checkpoint: "reports/models_plm/phobert/checkpoints/best_model.pt"
+  threshold: null        # not used (full_debate mode)
+
+data:
+  split: "test"
+  mode: "gold_evidence"
+  batch_size: 10
+  dev_path: "src/data/preprocessed/xlmr/vifactcheck_dev.jsonl"
+  test_path: "src/data/preprocessed/xlmr/vifactcheck_test.jsonl"
+
+output:
+  log_path: "reports/debate/judge_only/logs.jsonl"
+  metrics_path: "reports/debate/judge_only/metrics.json"
+  viz_dir: "reports/debate/judge_only/visualizations/"
