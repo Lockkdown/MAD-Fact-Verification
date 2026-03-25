@@ -3,6 +3,7 @@
 import random
 
 from src.utils.constants import LABEL_NAMES
+from src.orchestrator.agents.prompts.debater_prompt import DEBATER_R1_SYSTEM
 
 _ARGUMENT_LABELS = ["A", "B", "C", "D", "E", "F"]
 
@@ -36,6 +37,13 @@ def build_judge_prompt(
     consensus_verdict: str | None = None,
 ) -> list[dict]:
     """Build messages list for the judge. Always called after all debate rounds."""
+    if not all_rounds:
+        # Judge-only mode (k=0): same R1 debater prompt applied to DeepSeek — fair single-agent baseline
+        return [
+            {"role": "system", "content": DEBATER_R1_SYSTEM},
+            {"role": "user",   "content": f"CLAIM: {statement}\n\nEVIDENCE: {evidence}"},
+        ]
+
     debate_summary = _format_debate_transcript(all_rounds, is_unanimous)
 
     if is_unanimous and consensus_verdict is not None:

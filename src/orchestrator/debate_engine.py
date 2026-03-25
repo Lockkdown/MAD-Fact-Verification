@@ -28,6 +28,7 @@ class DebateEngine:
         mode: str,
         routed_to_debate: bool = True,
         m_star_confidence: float | None = None,
+        m_star_verdict: str | None = None,
     ) -> dict:
         """Run full debate for one sample. Logs result even on exception."""
         all_rounds: list[dict] = []
@@ -64,6 +65,7 @@ class DebateEngine:
                 "k_max": self.k_max,
                 "routed_to_debate": routed_to_debate,
                 "m_star_confidence": m_star_confidence,
+                "m_star_verdict": m_star_verdict,
                 "rounds_used": rounds_used,
                 "num_agent_calls": num_agent_calls,
                 "unanimous_at_round": unanimous_at_round,
@@ -76,7 +78,7 @@ class DebateEngine:
 
         except BaseException as exc:  # covers CancelledError (BaseException in Python 3.10+)
             result = self._make_error_result(
-                sample_id, gold_label, mode, m_star_confidence, str(exc)
+                sample_id, gold_label, mode, m_star_confidence, m_star_verdict, str(exc)
             )
 
         finally:
@@ -91,6 +93,7 @@ class DebateEngine:
         gold_label: str,
         mode: str,
         m_star_confidence: float | None,
+        m_star_verdict: str | None,
         error_msg: str,
     ) -> dict:
         """Safe fallback result dict logged when debate raises an exception."""
@@ -102,6 +105,7 @@ class DebateEngine:
             "k_max": self.k_max,
             "routed_to_debate": True,
             "m_star_confidence": m_star_confidence,
+            "m_star_verdict": m_star_verdict,
             "rounds_used": 0,
             "num_agent_calls": 0,
             "unanimous_at_round": None,

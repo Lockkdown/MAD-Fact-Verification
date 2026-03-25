@@ -99,8 +99,10 @@ async def run_debate_on_split(
                         mode,
                     )
                 m_conf: float | None = confidence
+                m_verdict: str | None = plm_verdict  # low confidence → routed to debate
             else:
                 m_conf = None
+                m_verdict = None
 
             return await engine.run(
                 sample_id=str(sample["id"]),
@@ -110,6 +112,7 @@ async def run_debate_on_split(
                 mode=mode,
                 routed_to_debate=True,
                 m_star_confidence=m_conf,
+                m_star_verdict=m_verdict,
             )
 
     tasks = [process_one(s) for s in samples]
