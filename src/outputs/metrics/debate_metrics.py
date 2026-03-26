@@ -109,7 +109,7 @@ def _compute_metrics(samples: list[dict], total_run: int, cfg: dict) -> dict:
     total = len(samples)
 
     macro_f1 = f1_score(gold_labels, pred_labels, labels=LABEL_NAMES, average="macro", zero_division=0)
-    accuracy = sum(g == p for g, p in zip(gold_labels, pred_labels)) / total_run
+    accuracy = sum(g == p for g, p in zip(gold_labels, pred_labels)) / total
 
     f1_per_label = {}
     for i, label in enumerate(LABEL_NAMES):

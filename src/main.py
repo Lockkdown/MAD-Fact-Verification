@@ -51,13 +51,6 @@ def _parse_args() -> argparse.Namespace:
         help="Debate mode to analyze (required for --phase analyze)",
     )
     parser.add_argument(
-        "--judge-f1",
-        default=None,
-        type=float,
-        dest="judge_f1",
-        help="Judge-only baseline Macro F1 for DCS computation (optional, --phase analyze)",
-    )
-    parser.add_argument(
         "--split",
         default=None,
         choices=["dev", "test"],
@@ -274,12 +267,12 @@ def _run_retry(config_path: str, errors_jsonl_path: str) -> None:
     asyncio.run(run_retry_experiment(config_path, errors_jsonl_path))
 
 
-def _run_analyze(debate_mode: str, judge_f1: float | None) -> None:
+def _run_analyze(debate_mode: str) -> None:
     """Run cross-config analysis: summary table + 4 paper-ready charts for a debate mode."""
     from src.outputs.metrics.cross_config_metrics import run_cross_config_analysis
     from src.outputs.visualizations.plot_cross_config import generate_cross_config_plots
 
-    run_cross_config_analysis(debate_mode, judge_only_f1=judge_f1)
+    run_cross_config_analysis(debate_mode)
     generate_cross_config_plots(debate_mode)
 
 
@@ -372,7 +365,7 @@ def main() -> None:
         if not args.debate_mode:
             logger.error("--debate-mode is required for --phase analyze")
             sys.exit(1)
-        _run_analyze(args.debate_mode, args.judge_f1)
+        _run_analyze(args.debate_mode)
 
     elif args.phase == "sweep-chart":
         _run_sweep_chart()
