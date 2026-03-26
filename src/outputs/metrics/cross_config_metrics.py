@@ -1,4 +1,4 @@
-"""Cross-config metrics aggregation: summary table, DCS, and shared log loader for MAD analysis."""
+"""Cross-config metrics aggregation: summary table and shared log loader for MAD analysis."""
 
 import json
 import logging
@@ -83,28 +83,14 @@ def build_summary_table(metrics_by_config: dict[str, dict]) -> list[dict]:
     return rows
 
 
-def compute_dcs(debate_f1: float, judge_only_f1: float) -> float:
-    """Debate Contribution Score = debate_f1 − judge_only_f1."""
-    return round(debate_f1 - judge_only_f1, 4)
-
-
-def run_cross_config_analysis(
-    mode: str,
-    judge_only_f1: float | None = None,
-) -> dict:
-    """Load metrics for all configs, build summary table, optionally compute DCS, and save."""
+def run_cross_config_analysis(mode: str) -> dict:
+    """Load metrics for all configs, build summary table, and save."""
     metrics_by_config = load_all_metrics(mode)
     if not metrics_by_config:
         logger.warning("No metrics found for mode=%s — skipping analysis.", mode)
         return {}
 
     summary = build_summary_table(metrics_by_config)
-
-    if judge_only_f1 is not None:
-        for row in summary:
-            f1 = row.get("macro_f1")
-            if f1 is not None:
-                row["dcs"] = compute_dcs(f1, judge_only_f1)
 
     out_path = PROJECT_ROOT / "reports" / "debate" / mode / "summary_table.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)

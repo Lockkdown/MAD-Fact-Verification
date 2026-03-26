@@ -64,6 +64,7 @@ def _make_fast_path_result(sample: dict, routing: dict, mode: str) -> dict:
         "k_max": 0,
         "routed_to_debate": False,
         "m_star_confidence": routing["confidence"],
+        "m_star_verdict": routing["plm_verdict"],
         "rounds_used": 0,
         "num_agent_calls": 0,
         "unanimous_at_round": None,
@@ -93,11 +94,13 @@ async def run_debate_on_split(
             if gate is not None:
                 plm_verdict, confidence = gate.predict(sample["statement"], sample["evidence"])
                 if confidence >= gate.threshold:  # fast path — high confidence
-                    return _make_fast_path_result(
+                    result = _make_fast_path_result(
                         sample,
                         {"plm_verdict": plm_verdict, "confidence": confidence},
                         mode,
                     )
+                    engine.logger.log(result)
+                    return result
                 m_conf: float | None = confidence
                 m_verdict: str | None = plm_verdict  # low confidence → routed to debate
             else:
