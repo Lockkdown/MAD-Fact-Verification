@@ -20,7 +20,7 @@ The current experimental setting uses `Statement + Evidence` from the ViFactChec
 
 ## Architecture
 
-![Pipeline Flow](docs/Flow.png)
+![Pipeline Flow](docs/somepictures/Flow.png)
 
 The figure is a schematic overview of the hybrid routing idea; the completed experiments in this repository currently use the `gold_evidence` setting rather than a full-context setup.
 
