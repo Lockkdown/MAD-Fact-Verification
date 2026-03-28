@@ -4,20 +4,6 @@ ViFactCheck MAD is a research-engineering project for Vietnamese fact verificati
 
 The current experimental setting uses `Statement + Evidence` from the ViFactCheck dataset and predicts one of three labels: `Support`, `Refute`, or `NEI`.
 
-## Highlights
-
-- **Hybrid inference pipeline**
-  - A tuned PLM handles high-confidence cases directly.
-  - Low-confidence cases are routed to multi-agent debate.
-- **Config-driven experimentation**
-  - PLM, full-debate, hybrid-debate, and sweep runs are defined with YAML configs under `src/config/experiments/`.
-- **Modular architecture**
-  - Clear separation across preprocessing, model training, debate orchestration, metrics, and visualization outputs.
-- **Research-oriented evaluation**
-  - Tracks Macro F1, per-label F1, routing quality, Debate Skip Rate, and Average Agent Calls.
-- **Reproducible outputs**
-  - Metrics, logs, checkpoints, and plots are written to structured directories under `reports/`.
-
 ## Architecture
 
 ![Pipeline Flow](docs/somepictures/Flow.png)
@@ -49,14 +35,10 @@ At a high level, the system works as follows:
 
 ### PLM candidates
 
-- **PhoBERT-base**
-  - `vinai/phobert-base`
-- **XLM-R-base**
-  - `xlm-roberta-base`
-- **mBERT**
-  - `bert-base-multilingual-cased`
-- **ViBERT**
-  - `FPTAI/vibert-base-cased`
+- **PhoBERT-base**: `vinai/phobert-base`
+- **XLM-R-base**: `xlm-roberta-base`
+- **mBERT**: `bert-base-multilingual-cased`
+- **ViBERT**: `FPTAI/vibert-base-cased`
 
 ### Debate panel
 
@@ -65,8 +47,7 @@ At a high level, the system works as follows:
   - `openai/gpt-4o-mini`
   - `qwen/qwen-2.5-72b-instruct`
   - `meta-llama/llama-3.3-70b-instruct`
-- **Judge**
-  - `deepseek/deepseek-chat`
+- **Judge**: `deepseek/deepseek-chat`
 - **Provider**
   - OpenRouter
 
@@ -98,10 +79,10 @@ PhoBERT is the best-performing PLM in this project and is used as the routing ga
 
 | Finding | Configuration / Model | Macro F1 | Efficiency Notes |
 |---|---|---:|---|
-| Strongest single-agent baseline | Qwen-2.5-72B | 0.8788 | Average Agent Calls = 1 |
-| Best judge-only baseline | DeepSeek judge-only | 0.8706 | Average Agent Calls = 1 |
-| Best full-debate configuration | `N=3, k=3` | 0.8690 | Average Agent Calls = 4.91 |
-| Best hybrid configuration | `N=4, k=5` | 0.8771 | Average Agent Calls = 0.94, Debate Skip Rate = 88.6% |
+| Strongest single-agent baseline | Qwen-2.5-72B | 0.8788 | AC = 1 |
+| Best judge-only baseline | DeepSeek judge-only | 0.8706 | AC = 1 |
+| Best full-debate configuration | `N=3, k=3` | 0.8690 | AC = 4.91 |
+| Best hybrid configuration | `N=4, k=5` | 0.8771 | AC = 0.94, DSR = 88.6% |
 | Routing policy | Global threshold `t = 0.85` | — | Shared across hybrid configs for consistent comparison |
 
 These results suggest that the hybrid design preserves near-best quality while using far fewer agent calls than always-debate configurations.
@@ -119,7 +100,6 @@ FactChecking/
 │   ├── outputs/                 # Metrics, logs, visualizations
 │   └── utils/                   # Shared constants and helpers
 ├── requirements.txt
-├── pyproject.toml
 └── README.md
 ```
 
