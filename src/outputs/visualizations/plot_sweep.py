@@ -53,7 +53,7 @@ def plot_threshold_sweep(out_dir: str | None = None) -> None:
     ax2.tick_params(axis="y", labelcolor=_COLOR_DSR)
     ax1.set_xticks(THRESHOLDS)
     ax1.set_ylim(0.70, 1.0)
-    ax2.set_ylim(0, 105)
+    ax2.set_ylim(0, 100)
     ax1.set_title(
         "Effect of Routing Threshold on Macro F1 and Debate Skip Rate",
         color="#222222",

@@ -65,7 +65,7 @@ def _get_r1_majority_verdict(per_round_verdicts: list[dict]) -> str | None:
     r1_verdicts = [v["verdict"] for v in per_round_verdicts[0].get("verdicts", [])]
     if not r1_verdicts:
         return None
-    return max(set(r1_verdicts), key=r1_verdicts.count)
+    return max(r1_verdicts, key=r1_verdicts.count)
 
 
 def _compute_verdict_flip_rate(debate_samples: list[dict]) -> float:

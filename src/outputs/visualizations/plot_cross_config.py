@@ -20,7 +20,12 @@ CONFIG_ORDER = ["n2k3", "n2k5", "n3k3", "n3k5", "n4k3", "n4k5"]
 
 
 def generate_cross_config_plots(mode: str) -> None:
-    """Load all logs and metrics for mode, then generate all 4 cross-config charts."""
+    """Load logs and metrics for mode, generate cross-config charts."""
+    from src.outputs.visualizations.plot_analysis_extras import (
+        plot_error_propagation_combined_table,
+        plot_round_distribution,
+    )
+
     metrics_by_config = load_all_metrics(mode)
     logs_by_config = load_all_logs(mode)
 
@@ -35,8 +40,15 @@ def generate_cross_config_plots(mode: str) -> None:
     plot_grouped_f1(metrics_by_config, out_dir / "grouped_f1.png")
 
     if logs_by_config:
-        plot_error_propagation(logs_by_config, out_dir / "error_propagation.png")
         plot_conformity_bias(logs_by_config, out_dir / "conformity_bias.png")
+
+        if mode == "full":
+            full_logs = load_all_logs("full")
+            hybrid_logs = load_all_logs("hybrid")
+            plot_error_propagation_combined_table(
+                full_logs, hybrid_logs, out_dir / "error_propagation.png"
+            )
+            plot_round_distribution(logs_by_config, out_dir / "round_distribution.png")
 
     logger.info("Cross-config plots saved → %s", out_dir)
 
@@ -88,56 +100,37 @@ def plot_grouped_f1(metrics_by_config: dict[str, dict], out_path: Path) -> None:
     logger.info("Grouped F1 chart saved → %s", out_path)
 
 
-def plot_error_propagation(logs_by_config: dict[str, list[dict]], out_path: Path) -> None:
-    """Stacked bar: per-config breakdown of ✓→✓, ✗→✓, ✓→✗, ✗→✗ (R1 majority vs judge)."""
-    configs = [c for c in CONFIG_ORDER if c in logs_by_config]
-    categories = ["✓→✓", "✗→✓ (fixed)", "✓→✗ (broken)", "✗→✗"]
-    cat_colors = ["#55A868", "#4C72B0", "#C44E52", "#BBBBBB"]
-
-    proportions: dict[str, list[float]] = defaultdict(list)
-    for cfg in configs:
-        counts = _error_propagation_counts(logs_by_config[cfg])
-        total = sum(counts.values()) or 1
-        for cat in categories:
-            proportions[cat].append(counts.get(cat, 0) / total)
-
-    fig, ax = plt.subplots(figsize=(9, 5))
-    bottoms = np.zeros(len(configs))
-    for cat, color in zip(categories, cat_colors):
-        vals = np.array(proportions[cat])
-        ax.bar(configs, vals, bottom=bottoms, label=cat, color=color, edgecolor="white")
-        bottoms += vals
-
-    ax.set_ylabel("Proportion of Samples")
-    ax.set_ylim(0, 1.12)
-    ax.set_title("Error Propagation (R1 Majority → Final Verdict)")
-    ax.legend(loc="upper right", fontsize=8)
-    ax.grid(axis="y", alpha=0.3)
-    plt.tight_layout()
-    fig.savefig(out_path, dpi=150)
-    plt.close(fig)
-    logger.info("Error propagation chart saved → %s", out_path)
-
 
 def plot_conformity_bias(logs_by_config: dict[str, list[dict]], out_path: Path) -> None:
-    """Line chart: % agents keeping R1 verdict per round (conformity bias across configs)."""
+    """Line chart: % agents keeping R1 verdict per round (conformity bias, k=5 configs)."""
     k5_configs = [c for c in CONFIG_ORDER if c.endswith("k5") and c in logs_by_config]
     if not k5_configs:
         logger.warning("No k=5 configs found — skipping conformity bias chart.")
         return
 
-    fig, ax = plt.subplots(figsize=(7, 4))
-    for cfg in k5_configs:
+    PALETTE = ["#4C72B0", "#DD8452", "#55A868"]
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for cfg, color in zip(k5_configs, PALETTE):
         by_round = _compute_conformity_by_round(logs_by_config[cfg])
         rounds = sorted(by_round.keys())
         rates = [by_round[r] * 100 for r in rounds]
-        ax.plot(rounds, rates, marker="o", label=cfg)
+        ax.plot(rounds, rates, marker="o", linewidth=2, markersize=7,
+                color=color, label=cfg, zorder=3)
+        for r, v in zip(rounds, rates):
+            offset = 8 if v >= 60 else -12
+            ax.annotate(f"{v:.0f}%", xy=(r, v), xytext=(0, offset),
+                        textcoords="offset points", ha="center",
+                        fontsize=8, color=color, fontweight="bold")
 
-    ax.set_xlabel("Debate Round")
-    ax.set_ylabel("% Agents Keeping R1 Verdict")
-    ax.set_ylim(40, 105)
-    ax.set_title("Conformity Bias Across Rounds (k=5 configs)")
-    ax.legend()
+    ax.axhline(50, color="gray", linestyle="--", linewidth=1, alpha=0.6,
+               label="50% baseline", zorder=1)
+    ax.set_xlabel("Debate Round", fontsize=10)
+    ax.set_ylabel("% Agents Keeping R1 Verdict", fontsize=10)
+    ax.set_xticks(range(1, 6))
+    ax.set_xticklabels([f"R{i}" for i in range(1, 6)])
+    ax.set_ylim(0, 120)
+    ax.set_title("Conformity Bias Across Rounds (k=5 configs)", fontsize=11, fontweight="bold")
+    ax.legend(fontsize=9, loc="upper right")
     ax.grid(alpha=0.3)
     plt.tight_layout()
     fig.savefig(out_path, dpi=150)
@@ -146,39 +139,6 @@ def plot_conformity_bias(logs_by_config: dict[str, list[dict]], out_path: Path) 
 
 
 # --- private helpers ---
-
-def _error_propagation_counts(samples: list[dict]) -> dict[str, int]:
-    """Count ✓→✓, ✗→✓, ✓→✗, ✗→✗ relative to R1 majority verdict for debate-path samples."""
-    counts: dict[str, int] = {"✓→✓": 0, "✗→✓ (fixed)": 0, "✓→✗ (broken)": 0, "✗→✗": 0}
-    for s in samples:
-        per_round = s.get("per_round_verdicts", [])
-        gold = s["gold_label"]
-        final = s["final_verdict"]
-        if not per_round:
-            # fast-path (hybrid): no R1 — classify final only
-            counts["✓→✓" if final == gold else "✗→✗"] += 1
-            continue
-        r1_majority = _r1_majority(per_round)
-        r1_correct = r1_majority == gold
-        final_correct = final == gold
-        if r1_correct and final_correct:
-            counts["✓→✓"] += 1
-        elif not r1_correct and final_correct:
-            counts["✗→✓ (fixed)"] += 1
-        elif r1_correct and not final_correct:
-            counts["✓→✗ (broken)"] += 1
-        else:
-            counts["✗→✗"] += 1
-    return counts
-
-
-def _r1_majority(per_round_verdicts: list[dict]) -> str | None:
-    """Return the majority verdict from round 1 debater votes."""
-    r1_verdicts = [v["verdict"] for v in per_round_verdicts[0].get("verdicts", [])]
-    if not r1_verdicts:
-        return None
-    return max(set(r1_verdicts), key=r1_verdicts.count)
-
 
 def _compute_conformity_by_round(samples: list[dict]) -> dict[int, float]:
     """For each round, return mean % agents that kept their R1 verdict."""
