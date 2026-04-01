@@ -1,6 +1,6 @@
-# ViFactCheck MAD
+# ViMAD
 
-ViFactCheck MAD is a research-engineering project for Vietnamese fact verification that combines a pretrained language model (PLM) routing gate with a configurable multi-agent debate system. The goal is to keep the strong efficiency of a single classifier on easy examples while escalating uncertain cases to a debate council and a final judge.
+ViMAD is a research-engineering project for Vietnamese fact verification that combines a pretrained language model (PLM) routing gate with a configurable multi-agent debate system. The goal is to keep the strong efficiency of a single classifier on easy examples while escalating uncertain cases to a debate council and a final judge.
 
 The current experimental setting uses `Statement + Evidence` from the ViFactCheck dataset and predicts one of three labels: `Support`, `Refute`, or `NEI`.
 
