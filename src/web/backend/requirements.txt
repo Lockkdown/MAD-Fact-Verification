@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+transformers
+torch
+pyvi
+pydantic
+httpx
+python-multipart
+python-dotenv

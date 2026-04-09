@@ -1,0 +1,58 @@
+export const AGENTS = {
+  mistral: {
+    id: 'mistral',
+    name: 'Mistral Small 4',
+    shortName: 'Mistral',
+    ecosystem: 'EU',
+    color: '#7C3AED',
+    bgColor: '#F5F3FF',
+    borderColor: '#DDD6FE',
+    icon: '⚡',
+  },
+  gpt4o_mini: {
+    id: 'gpt4o_mini',
+    name: 'GPT-4o mini',
+    shortName: 'GPT-4o mini',
+    ecosystem: 'US',
+    color: '#059669',
+    bgColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    icon: '✦',
+  },
+  qwen: {
+    id: 'qwen',
+    name: 'Qwen-2.5-72B',
+    shortName: 'Qwen',
+    ecosystem: 'CN',
+    color: '#D97706',
+    bgColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+    icon: '◈',
+  },
+  llama: {
+    id: 'llama',
+    name: 'Llama-3.3-70B',
+    shortName: 'Llama',
+    ecosystem: 'US',
+    color: '#2563EB',
+    bgColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    icon: '◎',
+  },
+  judge: {
+    id: 'judge',
+    name: 'DeepSeek-V3',
+    shortName: 'Judge',
+    ecosystem: 'CN',
+    color: '#DC2626',
+    bgColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    icon: '⚖',
+  },
+}
+
+export const CONFIG_AGENTS = {
+  n2: ['mistral', 'gpt4o_mini'],
+  n3: ['mistral', 'gpt4o_mini', 'qwen'],
+  n4: ['mistral', 'gpt4o_mini', 'qwen', 'llama'],
+}
