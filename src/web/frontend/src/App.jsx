@@ -8,7 +8,7 @@ import { usePredict } from './hooks/usePredict'
 export default function App() {
   const [claim, setClaim] = useState('')
   const [evidence, setEvidence] = useState('')
-  const [config, setConfig] = useState('phobert')
+  const [config, setConfig] = useState('hybrid_n3k3')
   const [useMock, setUseMock] = useState(true)
 
   const { state, startPredict, cancel } = usePredict()
@@ -62,8 +62,8 @@ export default function App() {
           {/* Mock toggle */}
           <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-700">Dùng Mock Data</p>
-              <p className="text-xs text-gray-400 mt-0.5">Không cần API key — dùng để xem giao diện</p>
+              <p className="text-sm font-medium text-gray-700">Lightweight Mode</p>
+              <p className="text-xs text-gray-400 mt-0.5">Dùng gpt-4o-mini thay vì full panel — cần OPENROUTER_API_KEY</p>
             </div>
             <button
               onClick={() => setUseMock((v) => !v)}
