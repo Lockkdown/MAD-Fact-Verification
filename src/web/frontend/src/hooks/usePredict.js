@@ -21,7 +21,7 @@ export function usePredict() {
   }, [])
 
   const startPredict = useCallback(
-    async (claim, evidence, config, useMock = true) => {
+    async (claim, evidence, config) => {
       if (abortRef.current) abortRef.current.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -32,7 +32,7 @@ export function usePredict() {
         const res = await fetch('/api/predict', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ claim, evidence, config, use_mock: useMock }),
+          body: JSON.stringify({ claim, evidence, config }),
           signal: controller.signal,
         })
 

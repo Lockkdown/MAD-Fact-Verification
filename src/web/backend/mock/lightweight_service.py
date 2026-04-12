@@ -3,21 +3,16 @@
 import asyncio
 import json
 import logging
-import os
 import random
-import re
 from typing import AsyncGenerator
-
-import httpx
 
 from prompts.debater_prompt import build_debater_prompt
 from prompts.judge_prompt import build_judge_prompt
+from services.llm_client import call_openrouter, parse_r1, parse_verdict_reasoning, make_fallback_reasoning
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 LIGHTWEIGHT_MODEL = "openai/gpt-4o-mini"
-VALID_VERDICTS = {"Support", "Refute", "NEI"}
 
 CONFIG_TO_AGENTS: dict[str, list[str]] = {
     "n2": ["mistral", "gpt4o_mini"],
@@ -25,110 +20,9 @@ CONFIG_TO_AGENTS: dict[str, list[str]] = {
     "n4": ["mistral", "gpt4o_mini", "qwen", "llama"],
 }
 
-_FALLBACK_REASONINGS: dict[str, str] = {
-    "mistral": (
-        "After carefully analyzing the provided claim and evidence, I find that the evidence "
-        "presents {stance} for the claim in question. The key phrase '{snippet}' directly "
-        "addresses the core assertion. The semantic alignment between the claim and evidence "
-        "leads me to conclude: {verdict}."
-    ),
-    "gpt4o_mini": (
-        "Upon thorough examination of the claim alongside the provided evidence, the analysis "
-        "reveals a {stance} relationship. The evidence states: '{snippet}', which {rel} the "
-        "claim under review. Therefore, my assessment concludes with a verdict of {verdict}."
-    ),
-    "qwen": (
-        "Analyzing this Vietnamese fact-checking task, the evidence '{snippet}' provides "
-        "{stance} information regarding the claim. The logical inference path leads to a "
-        "{verdict} conclusion."
-    ),
-    "llama": (
-        "Key observation: '{snippet}' — this portion of the evidence is particularly relevant. "
-        "The stance of the evidence toward the claim appears to be {stance}. Verdict: {verdict}."
-    ),
-    "judge": (
-        "Having reviewed all debater arguments, the majority converged on {verdict}. "
-        "The winning argument demonstrates direct evidence quotation and a sound inference chain. "
-        "Final verdict: {verdict}."
-    ),
-}
-
-
-def _make_fallback_reasoning(agent_id: str, evidence: str, verdict: str) -> str:
-    """Hardcoded template reasoning used when no API key is configured."""
-    template = _FALLBACK_REASONINGS.get(agent_id, _FALLBACK_REASONINGS["mistral"])
-    snippet = evidence[:60].strip() if evidence else "the provided evidence"
-    stance_map = {"Support": "supporting", "Refute": "contradicting", "NEI": "insufficient"}
-    rel_map = {"Support": "corroborates", "Refute": "contradicts", "NEI": "partially addresses"}
-    return template.format(
-        stance=stance_map.get(verdict, "neutral"),
-        snippet=snippet,
-        rel=rel_map.get(verdict, "relates to"),
-        verdict=verdict,
-    )
-
-
 async def call_lightweight_model(messages: list[dict]) -> str:
-    """Call gpt-4o-mini via OpenRouter. Falls back to empty string if API key missing."""
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not api_key:
-        logger.warning("OPENROUTER_API_KEY not set — using fallback template reasoning.")
-        return ""
-
-    payload = {
-        "model": LIGHTWEIGHT_MODEL,
-        "messages": messages,
-        "max_tokens": 400,
-        "temperature": 0.7,
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(OPENROUTER_URL, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-            return data["choices"][0]["message"]["content"].strip()
-    except Exception as exc:
-        logger.error("OpenRouter call failed: %s", exc)
-        return ""
-
-
-def _parse_r1(text: str, fallback_verdict: str = "NEI") -> tuple[str, str]:
-    """Parse Round-1 JSON response: {"verdict": ..., "reasoning": ...}."""
-    if not text:
-        return fallback_verdict, "Unable to parse response."
-    try:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
-            verdict = data.get("verdict", fallback_verdict)
-            if verdict not in VALID_VERDICTS:
-                verdict = fallback_verdict
-            reasoning = data.get("reasoning", "")
-            return verdict, reasoning
-    except (json.JSONDecodeError, KeyError):
-        pass
-    return _parse_verdict_reasoning(text, fallback_verdict)
-
-
-def _parse_verdict_reasoning(text: str, fallback_verdict: str = "NEI") -> tuple[str, str]:
-    """Parse VERDICT: X\\nREASONING: Y format used by R2+ and Judge."""
-    if not text:
-        return fallback_verdict, "Unable to parse response."
-    verdict = fallback_verdict
-    reasoning = text.strip()
-    v_match = re.search(r"VERDICT:\s*(Support|Refute|NEI)", text, re.IGNORECASE)
-    if v_match:
-        raw = v_match.group(1).capitalize()
-        if raw in VALID_VERDICTS:
-            verdict = raw
-    r_match = re.search(r"REASONING:\s*(.+)", text, re.DOTALL | re.IGNORECASE)
-    if r_match:
-        reasoning = r_match.group(1).strip()
-    return verdict, reasoning
+    """Call gpt-4o-mini via OpenRouter."""
+    return await call_openrouter(messages, LIGHTWEIGHT_MODEL)
 
 
 def _sse(data: dict) -> str:
@@ -207,13 +101,12 @@ async def generate_lightweight_debate(
         round_verdicts: list[dict] = []
         for agent_id, response_text in zip(agent_ids, responses):
             if not response_text:
-                # API key missing or call failed — use fallback
                 verdict = random.choice(["Support", "Refute", "NEI"])
-                reasoning = _make_fallback_reasoning(agent_id, evidence, verdict)
+                reasoning = make_fallback_reasoning(agent_id, evidence, verdict)
             elif round_num == 1:
-                verdict, reasoning = _parse_r1(response_text)
+                verdict, reasoning = parse_r1(response_text)
             else:
-                verdict, reasoning = _parse_verdict_reasoning(response_text)
+                verdict, reasoning = parse_verdict_reasoning(response_text)
 
             round_verdicts.append({"agent_id": agent_id, "verdict": verdict, "reasoning": reasoning})
             yield _sse({
@@ -249,9 +142,9 @@ async def generate_lightweight_debate(
 
     if not judge_response:
         final_verdict = max(set(all_verdicts_flat), key=all_verdicts_flat.count)
-        judge_reasoning = _make_fallback_reasoning("judge", evidence, final_verdict)
+        judge_reasoning = make_fallback_reasoning("judge", evidence, final_verdict)
     else:
-        final_verdict, judge_reasoning = _parse_verdict_reasoning(judge_response)
+        final_verdict, judge_reasoning = parse_verdict_reasoning(judge_response)
 
     total_calls = sum(len(r["verdicts"]) for r in all_rounds) + 1
     yield _sse({"type": "judge_result", "verdict": final_verdict, "reasoning": judge_reasoning,
