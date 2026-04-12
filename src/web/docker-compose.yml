@@ -5,7 +5,9 @@ services:
       - "8000:8000"
     environment:
       - REPORTS_DIR=/reports
-      - OPENROUTER_API_KEY
+    env_file:
+      - path: ./backend/.env
+        required: false
     volumes:
       - ../../reports:/reports:ro
     restart: unless-stopped

@@ -9,7 +9,6 @@ export default function App() {
   const [claim, setClaim] = useState('')
   const [evidence, setEvidence] = useState('')
   const [config, setConfig] = useState('hybrid_n3k3')
-  const [useMock, setUseMock] = useState(true)
 
   const { state, startPredict, cancel } = usePredict()
 
@@ -22,7 +21,7 @@ export default function App() {
       cancel()
       return
     }
-    startPredict(claim, evidence, config, useMock)
+    startPredict(claim, evidence, config)
   }
 
   return (
@@ -58,26 +57,6 @@ export default function App() {
         <section className="bg-white rounded-xl border border-gray-200 p-5">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">Cấu hình</h2>
           <ConfigSelector selected={config} onChange={setConfig} />
-
-          {/* Mock toggle */}
-          <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-700">Lightweight Mode</p>
-              <p className="text-xs text-gray-400 mt-0.5">Dùng gpt-4o-mini thay vì full panel — cần OPENROUTER_API_KEY</p>
-            </div>
-            <button
-              onClick={() => setUseMock((v) => !v)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                useMock ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                  useMock ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
         </section>
 
         {/* Analyze Button */}

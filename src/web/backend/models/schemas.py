@@ -15,7 +15,6 @@ class PredictRequest(BaseModel):
     claim: str = Field(..., min_length=1, description="Claim to verify")
     evidence: str = Field(..., min_length=1, description="Gold evidence")
     config: ConfigType = Field(default="phobert", description="Model/debate config")
-    use_mock: bool = Field(default=True, description="Use mock data instead of real inference")
 
 
 class HealthResponse(BaseModel):
