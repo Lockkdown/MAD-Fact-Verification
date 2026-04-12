@@ -19,7 +19,7 @@ const HYBRID_OPTIONS = [
 ]
 
 function getLabel(value) {
-  if (value === 'phobert') return 'PhoBERT ★ · PLM Standalone'
+  if (value === 'phobert') return '● PhoBERT ★ · PLM Standalone'
   const match = value.match(/^(full|hybrid)_n(\d)k(\d)$/)
   if (!match) return value
   const [, mode, n, k] = match
@@ -39,29 +39,34 @@ function SectionHeader({ label }) {
   )
 }
 
-function DropdownItem({ value, label, subtitle, isSelected, isHybrid, onClick }) {
+function DropdownItem({ value, label, subtitle, isSelected, isHybrid, isDefault, onClick }) {
   return (
     <button
       type="button"
       onClick={() => onClick(value)}
-      className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50 ${
+      className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-100 ${
         isSelected ? 'bg-blue-50' : ''
       }`}
     >
       <span className={`w-4 text-sm flex-shrink-0 ${isSelected ? 'text-blue-600' : 'text-transparent'}`}>
         ✓
       </span>
-      <span className="flex-1 min-w-0">
-        <span className={`block text-sm ${isSelected ? 'font-semibold text-blue-700' : 'font-medium text-gray-800'}`}>
+      <span className="flex-1 min-w-0 flex items-baseline gap-3">
+        <span className={`text-sm ${isSelected ? 'font-semibold text-blue-700' : 'font-medium text-gray-800'}`}>
           {label}
         </span>
         {subtitle && (
-          <span className="block text-xs text-gray-400 mt-0.5">{subtitle}</span>
+          <span className="text-xs text-gray-400">{subtitle}</span>
         )}
       </span>
       {isHybrid && (
         <span className="flex-shrink-0 text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
           t*=0.85
+        </span>
+      )}
+      {isDefault && (
+        <span className="flex-shrink-0 text-[10px] text-gray-400 ml-2">
+          ← default
         </span>
       )}
     </button>
@@ -114,6 +119,7 @@ export default function ConfigSelector({ selected, onChange }) {
               subtitle="Routing Gate (M*) — F1: 85.08%"
               isSelected={selected === 'phobert'}
               isHybrid={false}
+              isDefault={false}
               onClick={handleSelect}
             />
 
@@ -126,6 +132,7 @@ export default function ConfigSelector({ selected, onChange }) {
                 subtitle={`${opt.n} debaters · ${opt.k} rounds`}
                 isSelected={selected === opt.value}
                 isHybrid={false}
+                isDefault={false}
                 onClick={handleSelect}
               />
             ))}
@@ -139,6 +146,7 @@ export default function ConfigSelector({ selected, onChange }) {
                 subtitle={`${opt.n} debaters · ${opt.k} rounds`}
                 isSelected={selected === opt.value}
                 isHybrid
+                isDefault={opt.value === 'hybrid_n3k3'}
                 onClick={handleSelect}
               />
             ))}
